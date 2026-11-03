@@ -15,12 +15,15 @@ export function createLightbox(el, photos, ui, { getSource, reduced, onBeforeClo
   const focusables = [btnClose, btnPrev, btnNext];
   let idx = 0, isOpen = false, busy = false, lastFocus = null, token = 0;
 
+  // A photo that is not 4:5 is a print of its own (the photo strip): shown whole, without the polaroid frame.
   function size(ratio) {
-    ratio = Math.max(0.75, Math.min(1.34, ratio || 1));
+    const bare = Math.abs((ratio || 0.8) - 0.8) > 0.03, k = bare ? 1 : 0.92;
+    ratio = Math.max(bare ? 0.25 : 0.75, Math.min(1.34, ratio || 0.8));
+    card.classList.toggle("bare", bare);
     const vw = innerWidth, vh = innerHeight;
-    const w = Math.min(vw * 0.86, 480, (vh * 0.58 * ratio) / 0.92);
+    const w = Math.min(vw * 0.86, 480, (vh * (bare ? 0.7 : 0.58) * ratio) / k);
     card.style.width = w + "px";
-    photo.style.height = (w * 0.92) / ratio + "px";
+    photo.style.height = (w * k) / ratio + "px";
     cap.style.fontSize = Math.max(20, w * 0.075) + "px";
   }
 
@@ -33,7 +36,7 @@ export function createLightbox(el, photos, ui, { getSource, reduced, onBeforeClo
     cap.textContent = p.caption || "";
     count.textContent = `${idx + 1} / ${n}`;
     for (const img of [th, fu]) { img.classList.remove("ok"); img.hidden = false; img.removeAttribute("src"); }
-    size(1);
+    size(0.8);
     th.onload = () => { if (my !== token) return; th.classList.add("ok"); size(th.naturalWidth / th.naturalHeight); };
     th.onerror = () => { if (my === token) th.hidden = true; };
     fu.onload = () => { if (my !== token) return; fu.classList.add("ok"); size(fu.naturalWidth / fu.naturalHeight); };

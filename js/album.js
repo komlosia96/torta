@@ -8,7 +8,7 @@ export const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&
 const pad = n => String(n).padStart(2, "0");
 // Bump PHOTO_V whenever the photos change: a phone may still hold an old copy (or the "not found" from before
 // the photos existed) under the old address.
-const PHOTO_V = 2;
+const PHOTO_V = 3;
 export const thumbSrc = id => `assets/photos/thumb/${pad(id)}.jpg?v=${PHOTO_V}`;
 export const fullSrc = id => `assets/photos/full/${pad(id)}.jpg?v=${PHOTO_V}`;
 const PASTELS = [["#F3D9D3", "#E6D3E8"], ["#D9E8DF", "#DCE4EE"], ["#F4E6C8", "#EED8C6"], ["#E4DAEE", "#D9E2EC"], ["#EFD9C9", "#F1D6DA"], ["#DCE6EC", "#DCEAE0"]];
@@ -66,11 +66,18 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   }
 
   // Load the photos on the right page in view and its neighbours (full size, then thumb, then the placeholder stays).
-  // Photo p is on leaves[p].
+  // Photo p is on leaves[p]. A photo only shows once decoded, so it never pops in while its page turns.
+  // A photo that is not 4:5 is a print of its own (the photo strip): it goes on the page bare, in its own
+  // shape, taped like the polaroids but without the white frame.
   function loadImages() {
-    for (let p = Math.max(1, f - 1); p <= Math.min(n, f + 2); p++) {
+    for (let p = Math.max(1, f - 1); p <= Math.min(n, f + 3); p++) {
       leaves[p].querySelectorAll("img:not([src])").forEach(img => {
-        img.onload = () => img.classList.add("ok");
+        img.onload = () => (img.decode ? img.decode() : Promise.resolve()).catch(() => {}).then(() => {
+          const ar = img.naturalWidth / img.naturalHeight, print = img.closest(".pg-print");
+          print.classList.toggle("bare", Math.abs(ar - 0.8) > 0.03);
+          print.style.setProperty("--ar", ar.toFixed(4));
+          img.classList.add("ok");
+        });
         img.onerror = () => { if (!img.dataset.t) { img.dataset.t = "1"; img.src = thumbSrc(+img.parentNode.dataset.id); } else img.remove(); };
         img.src = fullSrc(+img.parentNode.dataset.id);
       });

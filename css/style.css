@@ -146,14 +146,18 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .leaf{transform-origin:0 50%;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;transition:transform .85s cubic-bezier(.45,.05,.2,1)}
 .leaf.sheet{top:1.8%;height:96.4%;width:48.6%}
 .leaf.flipped{transform:rotateY(-180deg)}
-.leaf.buried{visibility:hidden}
+/* Buried leaves leave the layout entirely, so Safari keeps only a few page layers in memory (it blanks and
+   flickers layers when it runs short). */
+.leaf.buried{display:none}
 .no-anim .leaf{transition:none!important}
 .bf{position:absolute;inset:0;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.bf.back{transform:rotateY(180deg)}
+/* Front and back are lifted a hair apart instead of sharing one plane, so Safari never z-fights them mid-turn. */
+.bf.front{transform:translateZ(.5px)}
+.bf.back{transform:rotateY(180deg) translateZ(.5px)}
 .cover .front{border-radius:2px 8px 8px 2px}
 .cover .back{border-radius:8px 2px 2px 8px}
-.leaf.turning .bf::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,15,5,.3),rgba(30,15,5,0) 70%);animation:shade .85s ease;pointer-events:none}
-@keyframes shade{0%,100%{opacity:0}50%{opacity:1}}
+/* No animated layers inside a page face (no shade, no fade-in): Safari ignores backface-visibility for them,
+   so they flashed through from the hidden side of a turning page. */
 .stitch{position:absolute;inset:6.5%;border:1.5px dashed rgba(236,200,150,.8);border-radius:7px;box-shadow:0 1px 0 rgba(20,8,2,.35)}
 .emboss{position:absolute;left:0;right:0;top:38%;text-align:center;font:700 4.2em/1 Georgia,"Times New Roman",serif;background:linear-gradient(180deg,#FBE7B5,#D2A456 60%,#A97A35);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1.5px 0 rgba(30,12,4,.6))}
 .endpaper{position:absolute;top:3%;bottom:3%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6em;padding:8%;background:#F4ECDD var(--paper);background-blend-mode:multiply;text-align:center}
@@ -171,7 +175,13 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .pg-print::after{right:-.8em;transform:rotate(32deg)}
 .pg-photo{position:relative;display:block;width:100%;aspect-ratio:4/5;padding:0;border:0;background:none;overflow:hidden;cursor:zoom-in}
 .pg-photo .ph{position:absolute;inset:0;background:linear-gradient(135deg,var(--pa),var(--pb))}
-.pg-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
+.pg-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}
+/* a photo that is a print of its own (not 4:5, e.g. the photo strip): no white frame, its own shape, as tall
+   as the page allows; its caption is not shown */
+.pg-print.bare{width:auto;height:86%;max-width:84%;padding:0;background:none;aspect-ratio:var(--ar);transform:rotate(-3.5deg)} /* centred, stuck on casually with a tilt */
+.pg-print.bare .pg-photo{height:100%;aspect-ratio:auto}
+.pg-print.bare .pg-cap{display:none}
+.pg-print.bare::before,.pg-print.bare::after{width:2em}
 .pg-photo img.ok{opacity:1}
 .pg-cap{min-height:1.7em;padding:.1em 3%;font:700 1.25em/1.5 var(--hand);text-align:center;color:var(--ink);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .pg-num{position:absolute;bottom:3.5%;font-size:.8em;font-weight:700;color:#A08B74}
@@ -216,6 +226,8 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .lb-card{position:relative;background:var(--paper);padding:4% 4% 0;border-radius:3px;box-shadow:0 22px 46px rgba(30,16,12,.5);will-change:transform;touch-action:none}
 .lb-photo{position:relative;display:block;overflow:hidden;background:linear-gradient(135deg,var(--pa),var(--pb))}
 .lb-photo b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:64px;color:rgba(90,60,55,.5)}
+.lb-card.bare{padding:0;background:none}
+.lb-card.bare .lb-cap{display:none}
 .lb-cap{display:block;min-height:1.8em;padding:.15em 4% .25em;font-family:var(--hand);font-weight:700;font-size:clamp(22px,6.5vw,30px);line-height:1.5;text-align:center}
 .lb-ui{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s}
 .lightbox.open .lb-ui{opacity:1}

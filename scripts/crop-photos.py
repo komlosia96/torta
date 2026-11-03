@@ -3,7 +3,7 @@
 # to the album's 4:5 page around the people in each photo. The list P below sets the order (date taken) and the
 # centre of the people per photo. Usage: pip install pillow, then python scripts/crop-photos.py [preview_dir]
 import sys, os
-from PIL import Image, ImageOps, ImageFilter
+from PIL import Image, ImageOps
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = os.path.join(root, "photos-original")
 FULL, THUMB = os.path.join(root, "assets/photos/full"), os.path.join(root, "assets/photos/thumb")
@@ -11,7 +11,8 @@ sheet_dir = sys.argv[1] if len(sys.argv) > 1 else None
 A = 4 / 5  # album page and lightbox ratio
 
 # In date order. (file, fx, fy, zoom): fx, fy = centre of the people (0..1); zoom < 1 crops tighter.
-# "fit" = keep the whole picture on a blurred copy of itself (the photo strip).
+# "asis" = keep the whole picture uncropped in its own shape (the photo strip, already a print of its own:
+# the album shows any photo that is not 4:5 without the white polaroid frame).
 P = [
     ("IMG_8579.JPG", 0.58, 0.55, 1),
     ("IMG_8570.JPG", 0.45, 0.6, 1),
@@ -32,13 +33,13 @@ P = [
     ("IMG_1781.jpeg", 0.5, 0.66, 1),  # full width, so the donkey statue shows too
     ("IMG_1936.jpeg", 0.45, 0.46, 1),  # wider and higher, so his head fits with room above
     ("IMG_1943.jpeg", 0.57, 0.7, 1),
-    ("IMG_2151.JPG", "fit"),
     ("IMG_2172.jpeg", 0.5, 0.6, 1),
     ("IMG_2463.jpeg", 0.4, 0.66, 1),
     ("IMG_2540.jpeg", 0.5, 0.62, 1),
     ("IMG_2669.JPG", 0.45, 0.43, 1),  # higher, so his hair is not cut
     ("IMG_2768.jpeg", 0.55, 0.52, 1),
     ("IMG_2896.jpeg", 0.47, 0.45, 1),  # higher, so the party hat fits
+    ("IMG_2151.JPG", "asis"),  # the photo strip, last by author request
 ]
 assert len(P) == 26 and len({p[0] for p in P}) == 26
 missing = set(f for f in os.listdir(src) if not f.startswith(".")) - {p[0] for p in P}
@@ -46,12 +47,8 @@ assert not missing, missing
 
 def framed(im, spec):
     W, H = im.size
-    if spec[1] == "fit":
-        bh = 1000; bw = round(bh * A)
-        bg = ImageOps.fit(im, (bw, bh)).filter(ImageFilter.GaussianBlur(28))
-        fg = im.copy(); fg.thumbnail((round(bw * 0.92), round(bh * 0.96)), Image.LANCZOS)
-        bg.paste(fg, ((bw - fg.width) // 2, (bh - fg.height) // 2))
-        return bg
+    if spec[1] == "asis":
+        return im
     _, fx, fy, z = spec
     bw = min(W, H * A, 2 * min(fx, 1 - fx) * W) * z
     bh = bw / A
@@ -67,9 +64,14 @@ for i, spec in enumerate(P, 1):
     c = framed(im, spec)
     name = f"{i:02d}.jpg"
     # Saved without EXIF, so no location or camera data is published.
-    full = c.resize((800, 1000), Image.LANCZOS) if c.width >= 800 else c
+    if spec[1] == "asis":
+        full = c.copy(); full.thumbnail((1000, 1800), Image.LANCZOS)
+        thumb = c.copy(); thumb.thumbnail((360, 360), Image.LANCZOS)
+    else:
+        full = c.resize((800, 1000), Image.LANCZOS) if c.width >= 800 else c
+        thumb = c.resize((288, 360), Image.LANCZOS)
     full.save(os.path.join(FULL, name), quality=80, optimize=True, progressive=True)
-    c.resize((288, 360), Image.LANCZOS).save(os.path.join(THUMB, name), quality=72, optimize=True, progressive=True)
+    thumb.save(os.path.join(THUMB, name), quality=72, optimize=True, progressive=True)
     fs, ts = os.path.getsize(os.path.join(FULL, name)), os.path.getsize(os.path.join(THUMB, name))
     total += fs + ts
     print(f"{spec[0]} -> {name}  crop {c.size}  full {fs // 1024} KB, thumb {ts // 1024} KB")
