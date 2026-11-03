@@ -96,12 +96,14 @@ export function createConcert({ unicorn, audio, reduced, onStart, onEnd }) {
     }, reduced ? 50 : 1150);
   }
 
-  // A hidden page pauses the song with everything else, and it carries on when she comes back.
+  // A hidden (or closed) page pauses the song with everything else, and it carries on when she comes back.
+  const away = () => { if (active && song && !song.paused) { wasPlaying = true; song.pause(); } };
   document.addEventListener("visibilitychange", () => {
     if (!active || !song) return;
-    if (document.hidden) { wasPlaying = !song.paused; song.pause(); }
-    else if (wasPlaying) { const p = song.play(); if (p && p.catch) p.catch(() => {}); }
+    if (document.hidden) away();
+    else if (wasPlaying) { wasPlaying = false; const p = song.play(); if (p && p.catch) p.catch(() => {}); }
   });
+  addEventListener("pagehide", away);
 
   return { prepare, start, stop: finish, isActive: () => active };
 }

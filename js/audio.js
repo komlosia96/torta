@@ -5,7 +5,7 @@
 const SONG_URL = "assets/audio/birthday-swing.mp3?v=2";
 const SONG_VOL = 0.75, FX_VOL = 0.15;
 
-let ctx = null, fx = null, music = null, muted = false, held = false, silent = null, wasRunning = false;
+let ctx = null, fx = null, music = null, muted = false, held = false, away = false, silent = null, wasRunning = false;
 let song = null, songEnd = 0, songLoad = null, source = null, wantSong = false, onStart = null;
 
 // Called each time the song actually starts playing.
@@ -130,11 +130,12 @@ export function kiss() {
 // Mute fades rather than cutting hard; the song keeps its place underneath.
 function fade(secs) {
   if (!ctx) return;
-  const now = ctx.currentTime, off = muted || held;
+  const now = ctx.currentTime, off = muted || held || away;
   for (const [g, v] of [[fx, FX_VOL], [music, SONG_VOL]]) {
     g.gain.cancelScheduledValues(now);
     g.gain.setValueAtTime(g.gain.value, now);
-    g.gain.linearRampToValueAtTime(off ? 0 : v, now + secs);
+    if (secs) g.gain.linearRampToValueAtTime(off ? 0 : v, now + secs);
+    else g.gain.setTargetAtTime(off ? 0 : v, now, 0.004); // near-instant, without a click
   }
 }
 export function setMuted(m) { muted = m; fade(0.25); }
@@ -143,14 +144,24 @@ export const isMuted = () => muted;
 export function hold(on) { held = on; fade(on ? 0.4 : 1.2); }
 
 // Pause everything while the page is hidden; the song continues where it was when she comes back.
-document.addEventListener("visibilitychange", () => {
-  if (!ctx) return;
-  if (document.hidden) {
-    wasRunning = ctx.state === "running";
-    if (silent) silent.pause();
-    ctx.suspend().catch(() => {});
-  } else if (wasRunning) {
-    ctx.resume().catch(() => {});
-    if (silent) { const p = silent.play(); if (p && p.catch) p.catch(() => {}); }
-  }
-});
+// The sound is silenced first and the audio stopped a moment later: suspending it mid-song made a buzz when the
+// page was closed (iOS repeats the last chunk of sound that was playing while it tears the page down).
+function leave() {
+  if (!ctx || away) return;
+  away = true;
+  wasRunning = ctx.state === "running";
+  fade(0);
+  if (silent) silent.pause();
+  setTimeout(() => { if (away) ctx.suspend().catch(() => {}); }, 60);
+}
+function back() {
+  if (!ctx || !away) return;
+  away = false;
+  if (!wasRunning) return;
+  ctx.resume().catch(() => {});
+  fade(0.4);
+  if (silent) { const p = silent.play(); if (p && p.catch) p.catch(() => {}); }
+}
+document.addEventListener("visibilitychange", () => (document.hidden ? leave() : back()));
+addEventListener("pagehide", leave); // closing the page or the in-app browser
+addEventListener("pageshow", e => { if (e.persisted) back(); });
