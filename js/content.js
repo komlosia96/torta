@@ -24,7 +24,8 @@ export const CONTENT = {
     replayTune: "Dallam újra",
     restart: "Újrakezdés",
     soundHint: "Kapcsold be a hangot",
-    noWebgl: "Nyisd meg az oldalt Safariban vagy Chrome-ban!",
+    turnBack: "Fordítsd vissza a telefont!", // shown while a phone is held sideways
+    noWebgl:"Nyisd meg az oldalt Safariban vagy Chrome-ban!",
     // Screen reader labels. {n} is replaced with a number.
     albumAria: "Fotóalbum",
     prevPage: "Előző oldal",

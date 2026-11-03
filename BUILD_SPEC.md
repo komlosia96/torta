@@ -17,7 +17,7 @@ This document replaces the first version of the spec.
 5. **Do not invent the slice message.** The author writes it. There is one slice message: "Szeretlek és hiányzol :((".
 6. **No em-dashes or en-dashes anywhere** (code, comments, copy, docs). Use commas, periods or hyphens.
 7. **Never broken without assets.** A missing photo shows a pastel placeholder page with its number.
-8. **Primary device: iPhone 17 Pro in Safari, portrait** (402 x 874 pt screen, about 402 x 760 visible with Safari's bars; Dynamic Island and home indicator respected through safe-area insets). Must also feel finished at 360 to 430 px wide portrait; landscape and desktop must look good too (the 3D framing adapts).
+8. **Primary device: iPhone 17 Pro in Safari, portrait** (402 x 874 pt screen, about 402 x 760 visible with Safari's bars; Dynamic Island and home indicator respected through safe-area insets). Must also feel finished at 360 to 430 px wide portrait; desktop must look good too (the 3D framing adapts). **Portrait only on phones** (author request): a website cannot lock the rotation on iOS, so a touch screen held sideways (landscape, at most 500 px tall) is covered by a card, "Fordítsd vissza a telefont!" (`ui.turnBack`) with a phone icon turning upright; turning back reveals the page exactly as it was. Landscape framing still adapts underneath (tablets, short desktop windows).
 9. **Realism first.** Correct perspective (one real perspective camera), objects rest on surfaces with plausible contact and shadows, physically based materials and light.
 
 ---
@@ -26,7 +26,7 @@ This document replaces the first version of the spec.
 
 1. **Opening.** Warm, candle-lit scene. The plush unicorn (a boy, looking a little sad) asks in a speech bubble: `Tudtad, hogy Rutéba nem lehet tortát kiszállítani? :((` The candles burn and light the cake.
 2. **The wish.** Before the wish there is only a button, "Kattints ide!" (no hint under it, so the first step is obvious). She taps it, and the hint "Kívánj valamit és fújj a telefon aljára! Nem működik? Akkor koppints a gyertyákra!" appears; she allows the microphone and blows. The flames lean with the strength of her breath and go out with smoke. Tapping a candle puts it out at any time before the wish is complete, mic or not.
-3. **The payoff.** The unicorn's bubble pops and now says `Boldog szülinapot, Kicsim!` (capital K, author's choice), the lights come up, confetti, the big band swing birthday song starts and keeps looping, and as it starts small fireworks go off in the sky above the cake (about 9 rockets over 6 s; again on "Dallam újra"), the unicorn glows and sparkles.
+3. **The payoff.** The unicorn's bubble pops and now says `Boldog szülinapot, Kicsim!` (capital K, author's choice), the lights come up, confetti, the big band swing birthday song starts and keeps looping, and as it starts a big fireworks show goes off in the sky above the cake (author request: bursts about 1.7 times larger and fuller, often with an inner ring in a second colour, 13 launches over about 7 s with pairs and a finale of four; the sky behind them dims, rgba(8,6,30,.62) on the fireworks canvas, and lights back up as the last sparks fade). "Dallam újra" replays the smaller show (about 9 rockets over 6 s, no dimming), the unicorn glows and sparkles.
 4. **Exploring.** Tapping the cake lifts that slice out of the cake toward her, showing the layered inside, with the message piped in icing on top. Tapping the album opens it; pages flip in 3D; tapping a photo shows it full size.
 
 **Lock rule:** before the candles are out, slices do not open (a small toast and a wiggle instead) and the unicorn only gives a small wiggle. The album is always available.
@@ -54,7 +54,7 @@ js/
   blow.js        microphone blow detection
   audio.js       Web Audio: the looping birthday song and sound effects
   confetti.js    canvas confetti
-  fireworks.js   small canvas fireworks in the sky (between the backdrop and the 3D scene), launched when the song starts
+  fireworks.js   canvas fireworks in the sky (the big show with a dimmed sky after the wish, the small one on replay) (between the backdrop and the 3D scene), launched when the song starts
   vendor/three.module.min.js
 assets/fonts/    Quicksand and Caveat woff2 (Latin + Latin Extended)
 assets/photos/full/01.jpg ... 26.jpg (about 1000 px), thumb/01.jpg ... 26.jpg (about 360 px)
@@ -158,7 +158,7 @@ The author's song `assets/audio/birthday-swing.mp3` (big band swing "Happy Birth
 - [ ] Celebration: lights up, the unicorn's bubble changes to the birthday wish, confetti, tune once, unicorn glows.
 - [ ] The front slice moves out after the wish, lifts out on tap, shows layered inside and its message, returns, gets a heart; the rest of the cake ignores taps.
 - [ ] Album: opens from the table, all 26 pages flip, photo viewer works, closes back to the table.
-- [ ] iPhone 17 Pro 402x874 and 402x760 (Safari bars), plus 360x640, 390x844, 430x932, landscape (874x402) and desktop framing; no console errors; reduced motion honoured.
+- [ ] iPhone 17 Pro 402x874 and 402x760 (Safari bars), plus 360x640, 390x844, 430x932, landscape on a phone shows the turn-back card, desktop framing; no console errors; reduced motion honoured.
 - [ ] Album: looks like an open book zoomed onto the right page (left page peeking), page turns look like flipping a book, swipe left and right through all 26 photos on a phone, tap a photo to zoom.
 - [ ] Real iPhone and Android over mobile data: smooth frame rate, acceptable load time.
 

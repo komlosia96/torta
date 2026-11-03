@@ -35,7 +35,9 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .bk{position:absolute;border-radius:50%;opacity:0;background:radial-gradient(circle,rgba(var(--c),.45) 0%,rgba(var(--c),.5) 70%,rgba(var(--c),.6) 90%,rgba(var(--c),0) 100%);animation:bk var(--t) ease-in-out var(--dl) infinite alternate}
 @keyframes bk{to{opacity:.7}}
 /* fireworks in the sky: above the backdrop, behind the 3D scene (the table and cake cover them) */
-.fireworks{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.fireworks{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;background-color:rgba(8,6,30,0);transition:background-color 1.8s ease}
+/* the sky darkens behind the big show after the wish, so the fireworks pop, then lights back up */
+.fireworks.dim{background-color:rgba(8,6,30,.62);transition-duration:.7s}
 /* the table front falls off into shadow, like the photo */
 .stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 64%,rgba(10,14,36,.38) 100%);transition:opacity 2.2s ease}
 .lights-on .stage::after{opacity:.4}
@@ -267,7 +269,18 @@ button{font:inherit;color:inherit;touch-action:manipulation}
   .action{gap:3px;bottom:calc(2% + env(safe-area-inset-bottom))}
 }
 
+/* Phones held sideways get a card asking to turn back to portrait (iOS ignores orientation locks); whatever was
+   open stays as it was underneath. Touch screens only, so a short desktop window is not covered. */
+.turn-back{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:radial-gradient(circle at 50% 40%,#342D77,#1C1C54 70%);color:#FFF5EA;text-align:center}
+.turn-back svg{width:72px;height:72px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transform:rotate(-90deg);animation:turnBack 2.4s ease-in-out infinite}
+.turn-back p{margin:0;font-size:20px;font-weight:700}
+@keyframes turnBack{0%,20%{transform:rotate(-90deg)}50%,85%{transform:rotate(0deg)}100%{transform:rotate(-90deg)}}
+@media (orientation:landscape) and (max-height:500px) and (pointer:coarse){
+  .turn-back{display:flex}
+}
+
 @media (prefers-reduced-motion:reduce){
+  .turn-back svg{animation:none;transform:none}
   .bk,.say.pop,.all-text,.btn-main,.flame-flick,.uni-breathe,.u-mane,.party .u-ear,.party .u-spark,.party .u-glow,.unlocked .spk{animation:none!important}
   .leaf{transition-duration:.01s!important}
   .kiss{animation:kissStill 1.4s ease forwards!important}

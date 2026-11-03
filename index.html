@@ -50,6 +50,12 @@
 <div id="sliceLayer" class="overlay slice-layer" hidden></div>
 <div id="lightbox" class="overlay lightbox" hidden role="dialog" aria-modal="true"></div>
 
+<!-- A phone held sideways: a website cannot lock the rotation on iOS, so this covers the page until it is upright -->
+<div id="turnBack" class="turn-back" role="alert">
+  <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="8" width="24" height="44" rx="5"/><path d="M29 46h6"/></svg>
+  <p id="turnBackText">Fordítsd vissza a telefont!</p>
+</div>
+
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

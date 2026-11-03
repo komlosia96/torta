@@ -13,7 +13,7 @@ A static, single-page birthday gift in Hungarian: a photoreal three.js scene (ca
 - No em-dashes or en-dashes anywhere (code, comments, UI copy, docs, including this file). Use commas, periods or hyphens.
 - Never invent the slice message. There is one, the author's own text in `js/content.js` ("Szeretlek és hiányzol :((", with Hungarian accents); do not reword it.
 - Never broken without assets: a missing photo must fall back to a pastel numbered placeholder, and the blow flow must always have a tap fallback.
-- Primary target: iPhone 17 Pro in Safari, portrait (test at 402x874 and 402x760). Other phones 360 to 430 px wide, landscape and desktop must still frame well.
+- Primary target: iPhone 17 Pro in Safari, portrait (test at 402x874 and 402x760). Other phones 360 to 430 px wide and desktop must still frame well. Phones are portrait only (author rule): iOS cannot lock rotation, so `#turnBack` (index.html, `.turn-back` in style.css, text `ui.turnBack`) covers the page at z-index 20 when a touch screen is landscape and at most 500 px tall; nothing underneath is reset. Test it at 740x360 in the preview (widths under 768 emulate touch; 874x402 does not).
 
 ## Commands
 
@@ -43,7 +43,7 @@ There are no tests, linters or build. Verification is done in the browser.
 
 **Audio and mic.** `js/audio.js` (Web Audio: the author's looping song `assets/audio/birthday-swing.mp3`, decoded into a buffer after the first unlocking tap, plus pop and squeak effects) and `js/blow.js` (mic RMS above a calibrated baseline -> 0..1 level). `audio.ensureAudio()` must be called synchronously inside a user gesture handler (iOS), before `startBlow`.
 
-**Stacking order** (`css/style.css`): `.sky` 0 < `.fireworks` canvas 1 (shown behind the transparent 3D canvas, so they burst in the sky and never cover the cake; launched by `audio.onSongStart`) < `.stage` canvas 2 < `#ov` overlays 4 < message 5 < confetti 6 < action/UI 7 < slice layer and album view 8 < lightbox 9.
+**Stacking order** (`css/style.css`): `.sky` 0 < `.fireworks` canvas 1 (shown behind the transparent 3D canvas, so they burst in the sky and never cover the cake; launched by `audio.onSongStart`; the first show after the wish is `show({ big: true })`, armed by `bigShow` in `celebrate()`, which also dims the sky through the canvas' own background, `.fireworks.dim`) < `.stage` canvas 2 < `#ov` overlays 4 < message 5 < confetti 6 < action/UI 7 < slice layer and album view 8 < lightbox 9 < turn-back card 20.
 
 **Content.** `js/content.js` is the only file the author edits (all UI strings, messages, photo list, candle number, album title). Counts are validated in main.js with `console.warn` and the page renders anyway.
 

@@ -1,5 +1,7 @@
-// Small fireworks in the sky above the cake (on a canvas between the bokeh backdrop and the 3D scene,
-// so they never cover the cake). A short show of rockets that rise, burst into glittering sparks and fade.
+// Fireworks in the sky above the cake (on a canvas between the bokeh backdrop and the 3D scene, so they never
+// cover the cake). A short show of rockets that rise, burst into glittering sparks and fade. The first show after
+// the wish is the big one (author request): larger, fuller bursts, more rockets and a finale, with the sky dimmed
+// behind them (the canvas' own background, .fireworks.dim) until the last sparks fade.
 // Saturated colours (the backdrop is full of soft coral and rose lights, so pastel sparks would vanish into it): [colour, core].
 const PALETTES = [
   ["255,70,140", "255,225,240"], // pink
@@ -25,20 +27,30 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
   // Scale with the screen: a burst is about a sixth of the width on a phone.
   const unit = () => Math.min(W, H * 0.75) / 400;
 
-  function launch() {
-    const u = unit(), x = W * (0.12 + Math.random() * 0.76), top = H * (0.07 + Math.random() * 0.22);
-    rockets.push({ x, y: H * 0.56, tx: x + (Math.random() - 0.5) * 40 * u, ty: top, t: 0, dur: 0.75 + Math.random() * 0.35, trail: [], pal: PALETTES[Math.floor(Math.random() * PALETTES.length)] });
+  const pick = () => PALETTES[Math.floor(Math.random() * PALETTES.length)];
+
+  // k scales a rocket's burst (1 = the small show, about 1.7 for the big one).
+  function launch(k = 1) {
+    const u = unit(), x = W * (0.12 + Math.random() * 0.76), top = H * (k > 1 ? 0.15 + Math.random() * 0.2 : 0.07 + Math.random() * 0.22); // big bursts lower, so they are not cut at the top
+    rockets.push({ x, y: H * 0.56, tx: x + (Math.random() - 0.5) * 40 * u, ty: top, t: 0, dur: 0.75 + Math.random() * 0.35, trail: [], pal: pick(), k });
     ensure();
   }
 
-  function burst(r) {
-    const u = unit(), n = lowEnd ? 34 : 56, speed = (95 + Math.random() * 35) * u, ring = Math.random() < 0.35;
+  function ring(r, pal, n, speed, round, life, size) {
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + Math.random() * 0.2, v = speed * (ring ? 0.9 + Math.random() * 0.15 : 0.4 + Math.random() * 0.7);
-      sparks.push({ x: r.tx, y: r.ty, px: r.tx, py: r.ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: 1.2 + Math.random() * 0.7, col: r.pal[0], core: r.pal[1], s: (1.6 + Math.random() * 1.2) * u, tw: Math.random() * 6 });
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.2, v = speed * (round ? 0.9 + Math.random() * 0.15 : 0.4 + Math.random() * 0.7);
+      sparks.push({ x: r.tx, y: r.ty, px: r.tx, py: r.ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: life * (1.2 + Math.random() * 0.7), col: pal[0], core: pal[1], s: size * (1.6 + Math.random() * 1.2), tw: Math.random() * 6 });
     }
+  }
+
+  function burst(r) {
+    const u = unit(), k = r.k, big = k > 1, n = Math.round((lowEnd ? 34 : 56) * (big ? 1.6 : 1));
+    const speed = (95 + Math.random() * 35) * u * k, life = big ? 1.3 : 1, size = u * (big ? 1.35 : 1);
+    ring(r, r.pal, n, speed, Math.random() < 0.35, life, size);
+    // Big bursts often carry a smaller inner ring in a second colour.
+    if (big && Math.random() < 0.6) ring(r, pick(), Math.round(n * 0.45), speed * 0.45, true, life * 0.85, size);
     // A soft flash at the centre
-    sparks.push({ x: r.tx, y: r.ty, vx: 0, vy: 0, life: 0, max: 0.4, col: r.pal[0], s: 22 * u, flash: true });
+    sparks.push({ x: r.tx, y: r.ty, vx: 0, vy: 0, life: 0, max: big ? 0.55 : 0.4, col: r.pal[0], s: 22 * u * k, flash: true });
   }
 
   function frame(now) {
@@ -53,7 +65,7 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
       if (r.trail.length > 8) r.trail.shift();
       r.trail.forEach(([tx, ty], i) => {
         c.fillStyle = `rgba(${r.pal[0]},${((i + 1) / r.trail.length) * 0.8})`;
-        c.beginPath(); c.arc(tx, ty, 1.6 * unit(), 0, 7); c.fill();
+        c.beginPath(); c.arc(tx, ty, 1.6 * unit() * Math.sqrt(r.k), 0, 7); c.fill();
       });
       if (k >= 1) { burst(r); return false; }
       return true;
@@ -95,17 +107,28 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
     timers = [];
     rockets = [];
     sparks = [];
+    canvas.classList.remove("dim");
   }
 
   addEventListener("resize", resize);
   resize();
 
   return {
-    // A short show: a few rockets in quick succession, then some more, over about six seconds.
-    show() {
+    // A short show: a few rockets in quick succession, then some more, over about six seconds. The big show is
+    // longer and fuller (some rockets in pairs, then a finale of four at once) and dims the sky while it lasts.
+    show({ big = false } = {}) {
       clear();
-      const n = lowEnd ? 6 : 9;
-      for (let i = 0; i < n; i++) timers.push(setTimeout(launch, i * 650 + Math.random() * 300));
+      const n = big ? (lowEnd ? 9 : 13) : lowEnd ? 6 : 9, gap = big ? 560 : 650, k = big ? 1.7 : 1;
+      let end = 0;
+      for (let i = 0; i < n; i++) {
+        const at = i * gap + Math.random() * 300, count = big && (i % 3 === 2 || i === n - 1) ? (i === n - 1 ? 4 : 2) : 1;
+        for (let j = 0; j < count; j++) timers.push(setTimeout(() => launch(k), at + j * 90));
+        end = at;
+      }
+      if (big) {
+        canvas.classList.add("dim");
+        timers.push(setTimeout(() => canvas.classList.remove("dim"), end + 2600)); // the last sparks are fading
+      }
     },
     clear,
   };
