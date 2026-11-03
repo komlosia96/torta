@@ -205,8 +205,7 @@ function setWishUI() {
   blowBtn.hidden = false;
   meter.hidden = true;
   hint.textContent = ""; // the wish text only shows once the button is tapped
-  hint2.textContent = U.fallbackHint;
-  hint2.hidden = !inApp;
+  hint2.hidden = true; // blowHint already says to tap the candles if the mic does not work (also in Messenger)
   cake.setCandlesTappable(true); // tapping a candle always works, mic or not
   cake.setTapHint(inApp);
 }
@@ -231,13 +230,11 @@ function showFallback(reason) {
   if (state === S.CELEBRATE || state === S.PLAY) return;
   if (DEV) console.log("[torta] fallback:", reason);
   cake.setTapHint(true);
-  // On a timeout the mic keeps listening and blowHint already says to tap the candles. Without a mic the hint
-  // only says to tap.
+  // blowHint stays in every case (author request): it already says to tap the candles if blowing does not work.
+  // On a timeout the mic keeps listening; without a mic only the level meter goes.
   if (reason !== "timeout") {
     cake.setBlowLevel(0);
     meter.hidden = true;
-    hint.textContent = U.fallbackHint;
-    hint2.hidden = true;
   }
 }
 

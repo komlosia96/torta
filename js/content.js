@@ -15,8 +15,7 @@ export const CONTENT = {
   ui: {
     blowButton: "Kattints ide!",
     // shown once the button is tapped, while the microphone listens ("\n" starts a new line)
-    blowHint: "Kívánj valamit és fújj a mikrofonra!\nNem működik? Akkor koppints a gyertyákra!",
-    fallbackHint: "Nem megy a mikrofon? Koppints a gyertyákra!",
+    blowHint: "Kívánj valamit és fújj a telefon aljára!\nNem működik? Akkor koppints a gyertyákra!",
     afterHint: "Koppints a szeletre, nyisd ki az albumot vagy bökd meg Ákost.",
     lockedToast: "Előbb fújd el a gyertyákat!",
     close: "Bezár",
