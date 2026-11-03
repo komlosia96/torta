@@ -8,6 +8,7 @@ import { startBlow, stopBlow } from "./blow.js";
 import * as audio from "./audio.js";
 import { createConfetti } from "./confetti.js";
 import { createFireworks } from "./fireworks.js";
+import { createConcert } from "./concert.js";
 
 const C = CONTENT, U = C.ui;
 const $ = id => document.getElementById(id);
@@ -29,7 +30,7 @@ const candleNumber = String(C.candleNumber || "26").replace(/\D/g, "").slice(0, 
 const albumCfg = C.album || {};
 
 const blowBtn = $("blowBtn"), hint = $("hint"), hint2 = $("hint2"), meter = $("meter"), bars = [...meter.children];
-const muteBtn = $("muteBtn"), replayBtn = $("replayBtn"), toastEl = $("toast"), soundHint = $("soundHint");
+const muteBtn = $("muteBtn"), toastEl = $("toast"), soundHint = $("soundHint");
 const say = $("say"), sayText = $("sayText"), sayTail = $("sayTail"), sparkHost = $("sparkHost"), allText = $("allText");
 const sliceLayer = $("sliceLayer");
 
@@ -37,7 +38,6 @@ document.title = C.pageTitle;
 root.lang = C.lang || "hu";
 sayText.textContent = C.intro.text;
 blowBtn.textContent = U.blowButton;
-replayBtn.textContent = U.replayTune;
 const resetBtn = $("resetBtn");
 resetBtn.setAttribute("aria-label", U.restart);
 resetBtn.title = U.restart;
@@ -47,7 +47,7 @@ soundHint.textContent = U.soundHint;
 $("turnBackText").textContent = U.turnBack;
 
 const S = { WISH: "WISH", BLOWING: "BLOWING", CELEBRATE: "CELEBRATE", PLAY: "PLAY" };
-let state = S.WISH, timers = [], heartTimer = 0, toastTimer = 0, muted = false, soundHintShown = false, allDone = false;
+let state = S.WISH, timers = [], heartTimer = 0, toastTimer = 0, muted = false, soundHintShown = false, allDone = false, uniTaps = 0;
 const visited = new Set();
 const later = (ms, fn) => timers.push(setTimeout(fn, ms));
 
@@ -82,9 +82,37 @@ const lightbox = createLightbox($("lightbox"), photos, U, {
   onBeforeClose: id => album.showPhoto(id),
 });
 const confetti = createConfetti($("confetti"));
-// Fireworks in the sky: the big show (dimmed sky) the moment the candles go out, the small one on "Dallam újra".
+// Fireworks in the sky: the big show (dimmed sky) the moment the candles go out.
 // Not tied to the song: on a phone the song can still be downloading (or fail), and the show must never wait.
 const fireworks = createFireworks($("fireworks"), { lowEnd });
+
+// Every third tap on Ákos after the wish he asks whether he should sing. "Nem" just closes the question (three
+// more taps ask again); "Igen" starts his concert, during which nothing else plays or reacts.
+const concert = createConcert({
+  unicorn: cake.unicorn, audio, reduced,
+  onStart() { fireworks.clear(); confetti.clear(); document.querySelectorAll(".kisses").forEach(e => e.remove()); },
+  onEnd() { uniTaps = 0; },
+});
+const ask = $("ask"), askYes = $("askYes"), askNo = $("askNo");
+$("askText").textContent = U.singAsk;
+askYes.textContent = U.singYes;
+askNo.textContent = U.singNo;
+function askToSing() {
+  if (state !== S.PLAY || concert.isActive() || album.isOpen() || lightbox.isOpen() || world.isSliceOpen()) return;
+  concert.prepare();
+  ask.hidden = false;
+  void ask.offsetWidth;
+  ask.classList.add("open");
+  askYes.focus({ preventScroll: true });
+}
+function closeAsk() {
+  ask.classList.remove("open");
+  ask.hidden = true;
+}
+askYes.addEventListener("click", () => { closeAsk(); uniTaps = 0; concert.start(); }); // inside the tap: iOS lets the song start
+askNo.addEventListener("click", () => { closeAsk(); uniTaps = 0; });
+ask.addEventListener("click", e => { if (e.target === ask) { closeAsk(); uniTaps = 0; } }); // a tap beside the card is a no
+ask.addEventListener("keydown", e => { if (e.key === "Escape") { closeAsk(); uniTaps = 0; } });
 
 // The unicorn's speech bubble sits just above its head (or above the candle flames when it would cover
 // them), with a curved tail pointing at the head. Re-placed on resize and whenever its text changes.
@@ -96,7 +124,7 @@ function placeSay() {
   const right = Math.min(W - 10, Math.max(head.x + w * 0.3, w + 10, cr.right + 10 + w)), left = right - w, h = say.offsetHeight;
   let bottom = head.top - 16;
   if (left < cr.right + 10 && bottom - h < cr.bottom) bottom = Math.min(bottom, cr.top - 14);
-  const top = Math.max(56, bottom - h); // clear of the mute and replay buttons
+  const top = Math.max(56, bottom - h); // clear of the reset and mute buttons
   say.style.left = left + "px";
   say.style.top = top + "px";
   // The tail leaves the bubble on the right, curves down past the right side of his head (away from the cake)
@@ -289,7 +317,6 @@ function toPlay() {
   cake.setLocked(false);
   cake.shimmer();
   hint.textContent = U.afterHint;
-  replayBtn.hidden = false;
 }
 
 function onSliceTap(k) {
@@ -311,11 +338,13 @@ function onSliceClosed(k) {
 }
 
 function onUnicornTap() {
+  if (concert.isActive()) return;
   if (state === S.PLAY || state === S.CELEBRATE) {
     audio.ensureAudio();
     cake.unicorn.react(true);
     audio.kiss();
     sendKisses();
+    if (state === S.PLAY && ++uniTaps >= 3) later(650, askToSing); // after the kisses have flown
   } else cake.unicorn.react(false);
 }
 
@@ -328,13 +357,10 @@ muteBtn.addEventListener("click", () => {
   soundHint.hidden = true;
 });
 
-replayBtn.addEventListener("click", () => {
-  audio.ensureAudio();
-  audio.playTune();
-  if (!reduced) fireworks.show();
-});
-
 function reset() {
+  if (concert.isActive()) return; // nothing can be touched while he sings
+  closeAsk();
+  uniTaps = 0;
   timers.forEach(clearTimeout);
   timers = [];
   clearInterval(heartTimer);
@@ -365,7 +391,6 @@ function reset() {
   body.classList.remove("lights-on", "candles-out");
   cake.setLights(false);
   cake.setCut(false);
-  replayBtn.hidden = true;
   setWishUI();
 }
 
@@ -377,6 +402,7 @@ if (DEV) {
   console.info("[torta] dev mode: C = celebrate, R = reset");
   addEventListener("keydown", e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (concert.isActive()) return;
     const k = e.key.toLowerCase();
     if (k === "c") celebrate();
     else if (k === "r") reset();

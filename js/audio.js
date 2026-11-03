@@ -5,7 +5,7 @@
 const SONG_URL = "assets/audio/birthday-swing.mp3?v=2";
 const SONG_VOL = 0.75, FX_VOL = 0.15;
 
-let ctx = null, fx = null, music = null, muted = false, silent = null, wasRunning = false;
+let ctx = null, fx = null, music = null, muted = false, held = false, silent = null, wasRunning = false;
 let song = null, songEnd = 0, songLoad = null, source = null, wantSong = false, onStart = null;
 
 // Called each time the song actually starts playing.
@@ -128,16 +128,19 @@ export function kiss() {
 }
 
 // Mute fades rather than cutting hard; the song keeps its place underneath.
-export function setMuted(m) {
-  muted = m;
+function fade(secs) {
   if (!ctx) return;
-  const now = ctx.currentTime;
+  const now = ctx.currentTime, off = muted || held;
   for (const [g, v] of [[fx, FX_VOL], [music, SONG_VOL]]) {
     g.gain.cancelScheduledValues(now);
     g.gain.setValueAtTime(g.gain.value, now);
-    g.gain.linearRampToValueAtTime(m ? 0 : v, now + 0.25);
+    g.gain.linearRampToValueAtTime(off ? 0 : v, now + secs);
   }
 }
+export function setMuted(m) { muted = m; fade(0.25); }
+export const isMuted = () => muted;
+// Silences the song and effects while the unicorn sings (only his song plays), then brings them back.
+export function hold(on) { held = on; fade(on ? 0.4 : 1.2); }
 
 // Pause everything while the page is hidden; the song continues where it was when she comes back.
 document.addEventListener("visibilitychange", () => {

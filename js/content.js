@@ -16,16 +16,19 @@ export const CONTENT = {
     blowButton: "Kattints ide!",
     // shown once the button is tapped, while the microphone listens ("\n" starts a new line)
     blowHint: "Kívánj valamit és fújj a telefon aljára!\nNem működik? Akkor koppints a gyertyákra!",
-    afterHint: "Koppints a szeletre, nyisd ki az albumot vagy bökd meg Ákost.",
+    afterHint: "Koppints a szeletre, nyisd ki az albumot vagy bökdösd Ákost, hogy csináljon valamit.",
+    // Every third tap on Ákos after the wish he asks this; "Igen" starts his concert.
+    singAsk: "Szeretnéd, hogy énekeljek?",
+    singYes: "Igen",
+    singNo: "Nem",
     lockedToast: "Előbb fújd el a gyertyákat!",
     close: "Bezár",
     soundOn: "Hang be",
     soundOff: "Hang ki",
-    replayTune: "Dallam újra",
     restart: "Újrakezdés",
     soundHint: "Kapcsold be a hangot",
     turnBack: "Fordítsd vissza a telefont!", // shown while a phone is held sideways
-    noWebgl:"Nyisd meg az oldalt Safariban vagy Chrome-ban!",
+    noWebgl: "Nyisd meg az oldalt Safariban vagy Chrome-ban!",
     // Screen reader labels. {n} is replaced with a number.
     albumAria: "Fotóalbum",
     prevPage: "Előző oldal",

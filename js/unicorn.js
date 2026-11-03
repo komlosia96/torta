@@ -53,7 +53,8 @@ function tailArt(r) {
   ]);
 }
 
-function baseArt() {
+// up: the singing pose, his right arm raised holding a microphone (the hanging arm and its hoof are left out).
+function baseArt(up = false) {
   const r = rng(26);
   return `<defs>${PLUSH}${FAUX}${BLUR("b4", 4)}${BLUR("b3", 3)}${BLUR("b2", 2)}${BLUR("b1", 1)}${FUR}
 <radialGradient id="muz" cx=".45" cy=".3" r=".75"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".75" stop-color="#F6F2F4"/><stop offset="1" stop-color="#DCD3DD"/></radialGradient>
@@ -75,13 +76,13 @@ ${tailArt(r)}
   <path d="M-11-55.5Q0-48.5 11-55.5" fill="none" stroke="#2C5FA8" stroke-width="2.4" stroke-linecap="round"/>
   <ellipse cx="-31" cy="-4" rx="10" ry="6.5" fill="url(#fur)"/><ellipse cx="31" cy="-4" rx="10" ry="6.5" fill="url(#fur)"/>
   <path d="M-34-12Q-22-26-10-16M34-12Q22-26 10-16M0-54Q1-46 0-38" ${SEAM}/>
-  <path d="M-15-38V-6Q-15 1-9 1Q-3 1-3-6V-36Z" fill="url(#fur)"/><path d="M3-36V-6Q3 1 9 1Q15 1 15-6V-38Z" fill="url(#fur)"/>
-  <path d="M-4.5-34V-5M4.5-34V-5" ${SEAM}/>
-  <path d="M-18-41.5Q-9.5-45-1-40.5L-1.6-32.6Q-9.4-30-17.2-32.8Z" fill="url(#tee)"/><path d="M18-41.5Q9.5-45 1-40.5L1.6-32.6Q9.4-30 17.2-32.8Z" fill="url(#tee)"/>
-  <path d="M-17.2-32.8Q-9.4-30-1.6-32.6M17.2-32.8Q9.4-30 1.6-32.6" fill="none" stroke="#2C5FA8" stroke-width="1.4" stroke-linecap="round"/>
-  <ellipse cx="-9" cy="-1" rx="5.5" ry="1.8" fill="#A69CB4" opacity=".35" filter="url(#b1)"/><ellipse cx="9" cy="-1" rx="5.5" ry="1.8" fill="#A69CB4" opacity=".35" filter="url(#b1)"/>
+  <path d="M-15-38V-6Q-15 1-9 1Q-3 1-3-6V-36Z" fill="url(#fur)"/>${up ? "" : `<path d="M3-36V-6Q3 1 9 1Q15 1 15-6V-38Z" fill="url(#fur)"/>`}
+  <path d="M-4.5-34V-5${up ? "" : "M4.5-34V-5"}" ${SEAM}/>
+  <path d="M-18-41.5Q-9.5-45-1-40.5L-1.6-32.6Q-9.4-30-17.2-32.8Z" fill="url(#tee)"/>${up ? "" : `<path d="M18-41.5Q9.5-45 1-40.5L1.6-32.6Q9.4-30 17.2-32.8Z" fill="url(#tee)"/>`}
+  <path d="M-17.2-32.8Q-9.4-30-1.6-32.6${up ? "" : "M17.2-32.8Q9.4-30 1.6-32.6"}" fill="none" stroke="#2C5FA8" stroke-width="1.4" stroke-linecap="round"/>
+  <ellipse cx="-9" cy="-1" rx="5.5" ry="1.8" fill="#A69CB4" opacity=".35" filter="url(#b1)"/>${up ? "" : `<ellipse cx="9" cy="-1" rx="5.5" ry="1.8" fill="#A69CB4" opacity=".35" filter="url(#b1)"/>`}
   <g clip-path="url(#ct)" opacity=".42"><ellipse cx="-13" cy="-32" rx="13" ry="17" fill="#CFE2F7" filter="url(#b4)"/><ellipse cx="13" cy="-22" rx="13" ry="15" fill="#CDEBDD" filter="url(#b4)"/><ellipse cx="0" cy="-47" rx="12" ry="7" fill="#FFF0C6" filter="url(#b4)"/></g>
-  <ellipse cx="-9" cy="-3" rx="5.4" ry="3.2" fill="#AFC2E4"/><ellipse cx="9" cy="-3" rx="5.4" ry="3.2" fill="#AFC2E4"/>
+  <ellipse cx="-9" cy="-3" rx="5.4" ry="3.2" fill="#AFC2E4"/>${up ? "" : `<ellipse cx="9" cy="-3" rx="5.4" ry="3.2" fill="#AFC2E4"/>`}
   <ellipse cx="-36" cy="-4" rx="4.2" ry="4.8" fill="#BCCBE8"/><ellipse cx="36" cy="-4" rx="4.2" ry="4.8" fill="#BCCBE8"/>
 </g>
 <ellipse cx="0" cy="-54" rx="19" ry="5" fill="#6E6380" opacity=".35" filter="url(#b2)"/>
@@ -101,6 +102,16 @@ ${tailArt(r)}
   <path d="M-5.2-101Q0-103.4 4.7-107.2M-4-108.4Q0-110.4 3.5-113.8" fill="none" stroke="#FFF4EA" stroke-width=".7" opacity=".8"/>
 </g>`;
 }
+
+// The raised arm with its sleeve, the hoof gripping a microphone held up to his mouth. A layer of its own above
+// the name on the shirt, so the arm covers the name instead of the name showing through it.
+const micArmArt = () => `<defs>${PLUSH}${FUR}<linearGradient id="tee" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6AA6EE"/><stop offset="1" stop-color="#3D7BD0"/></linearGradient><linearGradient id="mh" x1="0" x2="1"><stop offset="0" stop-color="#2A2A33"/><stop offset=".45" stop-color="#5B5B68"/><stop offset="1" stop-color="#1D1D24"/></linearGradient>
+<radialGradient id="mg" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".45" stop-color="#C9CDD6"/><stop offset="1" stop-color="#6E7380"/></radialGradient></defs>
+<g transform="rotate(35 7 -58)"><rect x="5.2" y="-66" width="3.6" height="13" rx="1.6" fill="url(#mh)"/><rect x="4.6" y="-66.5" width="4.8" height="1.8" rx=".6" fill="#B9BDC7"/></g>
+<circle cx="10.2" cy="-63.2" r="4.4" fill="url(#mg)" stroke="#5C606B" stroke-width=".5"/>
+<path d="M7-64.6Q10.2-66.6 13.4-64.6M6.3-62.6Q10.2-64.4 14.1-62.6M6.8-60.6Q10.2-61.9 13.6-60.6M10.2-67.4V-59" fill="none" stroke="#7A7F8B" stroke-width=".4" opacity=".8"/>
+<g filter="url(#p)"><g transform="rotate(-24 11 -38)"><rect x="5" y="-57" width="12" height="21" rx="6" fill="url(#fur)"/><path d="M5.4-44.5H16.6V-36.2Q11-34 5.4-36.2Z" fill="url(#tee)"/><path d="M5.4-44.5H16.6" stroke="#2C5FA8" stroke-width="1.4" stroke-linecap="round"/></g>
+<ellipse cx="4.6" cy="-55.6" rx="5.4" ry="3.6" fill="#AFC2E4" transform="rotate(-24 4.6 -55.6)"/></g>`;
 
 const earArt = () => `<defs>${PLUSH}${FUR}<linearGradient id="in" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D3E3F8"/><stop offset=".5" stop-color="#B5CCF0"/><stop offset="1" stop-color="#98B3E4"/></linearGradient></defs>
 <g filter="url(#p)"><path d="M-6.5 2Q-8-9 0-18Q8-9 6.5 2Q0 4.5-6.5 2Z" fill="url(#fur)"/><path d="M-3.6.5Q-4.4-7 0-13.5Q4.4-7 3.6.5Q0 2-3.6.5Z" fill="url(#in)"/></g>`;
@@ -129,6 +140,9 @@ const happyArt = () => `${FACE_DEFS}${eye(-13, -80, 4.5)}${eye(13, -80, 4.5)}${B
 const sadArt = () => `${FACE_DEFS}${eye(-13, -79.5, 4.3, 1.3)}${eye(13, -79.5, 4.3, 1.3)}
 <path d="M-18.5-88Q-13.5-89-8.5-92.5M8.5-92.5Q13.5-89 18.5-88" fill="none" stroke="#6E6474" stroke-width="1.7" stroke-linecap="round"/>
 <path d="M-6.5-58Q0-61.5 6.5-58" ${THREAD}/>`;
+// Singing: eyes closed happily, brows up; the open mouth is its own layer so it can move with the song.
+const singArt = () => `${FACE_DEFS}<path d="M-17.5-79Q-13-84-8.5-79M8.5-79Q13-84 17.5-79" fill="none" stroke="#1E1A1D" stroke-width="1.6" stroke-linecap="round"/>${BROWS}`;
+const MOUTH = `<ellipse cx="0" cy="0" rx="3.6" ry="3.4" fill="#4E2E38"/><ellipse cx="0" cy="1.6" rx="2.2" ry="1.3" fill="#B9636C"/>`;
 const blinkArt = () => `${FACE_DEFS}<path d="M-17.5-80Q-13-84-8.5-80M8.5-80Q13-84 17.5-80" fill="none" stroke="#1E1A1D" stroke-width="1.5" stroke-linecap="round"/>${BROWS}${SMILE}`;
 const glowArt = () => `<defs><radialGradient id="g"><stop offset="0" stop-color="#FFE9C4" stop-opacity=".8"/><stop offset=".55" stop-color="#E9D4FF" stop-opacity=".35"/><stop offset="1" stop-color="#E9D4FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="0" cy="-70" rx="70" ry="62" fill="url(#g)"/>`;
 
@@ -166,12 +180,16 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1, shir
   part("u-ear u-ear-l", [-10, -21, 20, 26], earArt(), [-25.5, -117, 20, 26]);
   part("u-ear u-ear-r", [-10, -21, 20, 26], earArt(), [5.5, -117, 20, 26]);
   part("u-base", [-96, -128, 150, 136], baseArt());
+  part("u-base u-base-sing", [-96, -128, 150, 136], baseArt(true));
   // The name on the shirt is inline SVG so it uses the page font (accents included). The plush is mirrored
   // with CSS, so the text is mirrored back here to read the right way round.
   if (shirt) inline("u-shirt", [-24, -54, 48, 13], "-24 -54 48 13", `<g transform="scale(-1 1)"><text x="0" y="-44" text-anchor="middle" textLength="${Math.min(30, 7 * [...shirt].length)}" lengthAdjust="spacingAndGlyphs" font-family="Quicksand,sans-serif" font-weight="700" font-size="10.5" fill="#FFFFFF" stroke="#1E4A8A" stroke-width=".5" paint-order="stroke">${shirt.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))}</text></g>`);
+  part("u-arm", [-96, -128, 150, 136], micArmArt());
   part("u-face f-sad", [-30, -100, 60, 50], sadArt());
   part("u-face f-happy", [-30, -100, 60, 50], happyArt());
   part("u-face f-blink", [-30, -100, 60, 50], blinkArt());
+  part("u-face f-sing", [-30, -100, 60, 50], singArt());
+  inline("u-mouth", [-5, -64.5, 10, 9], "-5 -4.5 10 9", MOUTH);
   inline("u-spark", [-7, -135, 14, 14], "-7 -7 14 14", `<path d="${star4(0, 0, 6)}" fill="#FFF6D8" stroke="#E9B44C" stroke-width=".6"/>`);
   inline("u-heart", [11, -126, 14, 14], "-7 -7 14 14", `<path d="${heartPath(0, 0, 5.5)}" fill="#F27A9A" stroke="#fff" stroke-width=".9"/>`);
   b.insertAdjacentHTML("beforeend", `<button type="button" class="u u-head" aria-label="${label}"></button>`);
@@ -185,6 +203,9 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1, shir
       uni.classList.toggle("party", m === "happy");
       uni.classList.toggle("mood-sad", m !== "happy");
     },
+    // The concert: the microphone pose, singing face and a swaying beat (main.js moves and lights him).
+    setSinging(on) { uni.classList.toggle("sing", on); },
+    host,
     react(big) {
       wig.classList.remove("wiggle", "nudge");
       if (!big) { restart(wig, "nudge"); return; }
