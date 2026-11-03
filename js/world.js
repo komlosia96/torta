@@ -2,7 +2,7 @@
 // cake, candles, album, plush placement, tap picking and pulling a slice out of the cake to read it (units: cm).
 import * as THREE from "./vendor/three.module.min.js";
 import * as TX from "./tex.js";
-import { buildCake, makeMaterials, R, S, Y0, TOP, radial } from "./cake.js";
+import { buildCake, addTopper, makeMaterials, R, S, Y0, TOP, radial } from "./cake.js";
 import { buildCandles } from "./candles.js";
 import { createUnicorn } from "./unicorn.js";
 
@@ -64,7 +64,7 @@ export async function createWorld(o) {
     return null;
   }
   // The candle digits are traced from the page font: wait for it (briefly), and let the page paint first.
-  await Promise.race([document.fonts.load('700 100px "Quicksand"', "0123456789").catch(() => {}), new Promise(r => setTimeout(r, 2000))]);
+  await Promise.race([Promise.all([document.fonts.load('700 100px "Quicksand"', "0123456789"), o.topper && document.fonts.load('700 100px "Caveat"', o.topper)]).catch(() => {}), new Promise(r => setTimeout(r, 2000))]);
   await new Promise(r => setTimeout(r, 0));
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowEnd ? 1.5 : 2));
@@ -83,6 +83,16 @@ export async function createWorld(o) {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(FOV, 1, 4, 900);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(envScene(), 0.04).texture;
+  // A lost WebGL context (memory pressure on phones, a backgrounded tab, a GPU reset) blanks every 3D object
+  // while the DOM unicorn stays. three.js reconnects by itself once the browser restores the context, but the
+  // reflection map exists only on the GPU, so rebuild it, and draw again (nothing renders on its own here).
+  canvas.addEventListener("webglcontextrestored", () => {
+    const old = scene.environment, gen = new THREE.PMREMGenerator(renderer);
+    scene.environment = gen.fromScene(envScene(), 0.04).texture;
+    gen.dispose();
+    if (old) old.dispose();
+    invalidate();
+  });
 
   const tex = {
     creamTop: TX.creamTop(), creamSide: TX.creamSide(), sponge: TX.sponge(), leaf: TX.leafTex(),
@@ -130,6 +140,7 @@ export async function createWorld(o) {
 
   // Cake and number candles
   const M = makeMaterials(THREE, tex), cake = buildCake(THREE, M), C = buildCandles(o.number, tex);
+  const topper = o.topper ? addTopper(cake.slices, TX.signTex(o.topper)) : null;
   scene.add(cake.group, C.group);
 
   // Closed leather photo album lying on the table: stitched cover, rounded spine with raised bands, page block.
@@ -172,7 +183,7 @@ export async function createWorld(o) {
   const plushHost = document.createElement("div");
   plushHost.className = "uni-host";
   ov.appendChild(plushHost);
-  const unicorn = createUnicorn(plushHost, { label: ui.unicornAria, onTap: o.onUnicornTap, seat: [100, 136], frame: [200, 150] });
+  const unicorn = createUnicorn(plushHost, { label: ui.unicornAria, onTap: o.onUnicornTap, seat: [100, 136], frame: [200, 150], shirt: o.shirt });
 
   // DOM hit targets over 3D objects (real buttons for screen readers and keyboards)
   const albumBtn = document.createElement("button");
@@ -221,6 +232,7 @@ export async function createWorld(o) {
     cakePts.push(new THREE.Vector3(14.3 * S * c, 5.9, 14.3 * S * s), new THREE.Vector3(6.3 * S * c, 0, 6.3 * S * s));
   }
   C.candles.forEach(c => cakePts.push(c.group.localToWorld(c.base.clone().add(new THREE.Vector3(0, 2.6, 0)))));
+  if (topper) { const b = new THREE.Box3().setFromObject(topper); cakePts.push(b.min.clone(), b.max.clone()); }
   { const b = new THREE.Box3().setFromObject(book); for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) sidePts.push(new THREE.Vector3(x, y, z)); }
   // The plush image is mirrored: from about 0.45 x its height left of the seat to the tail tip about 0.8 x right.
   sidePts.push(PLUSH_AT.clone().add(new THREE.Vector3(-0.45 * PLUSH_H, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0.8 * PLUSH_H, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0, PLUSH_H + 1, 0)));

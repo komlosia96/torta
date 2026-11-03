@@ -221,6 +221,26 @@ function buildMound(M, parts) {
   });
 }
 
+// Cake topper: a small card on a wooden pick stuck in the cream left of the candles, slightly turned and tilted.
+// It belongs to the slice it stands on and steps aside with that slice's berries while its message is read.
+const TOPPER_AT = [-8.6, 4.2], CARD_W = 6.6, CARD_H = 3.3, PICK = 4.6;
+export function addTopper(slices, map) {
+  const [x, z] = TOPPER_AT, k = sliceOf(x, z), t = new THREE.Group();
+  const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, PICK + CARD_H * 0.6 + 0.8, 10), new THREE.MeshStandardMaterial({ color: 0xd8b385, roughness: 0.75 }));
+  pick.position.set(0, (PICK + CARD_H * 0.6 - 0.8) / 2, -0.06);
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H), new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.7, side: THREE.DoubleSide, emissive: 0x3a3026, emissiveMap: map, emissiveIntensity: 0.35 }));
+  card.position.set(0, PICK + CARD_H / 2, 0);
+  card.rotation.z = 0.07;
+  t.add(pick, card);
+  t.position.set(x, TOP - 0.05, z);
+  t.rotation.y = 0.18;
+  t.userData.s0 = t.scale.clone();
+  t.traverse(o => { o.userData.k = k; if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  slices[k].userData.inner.add(t);
+  slices[k].userData.berries.push(t);
+  return card;
+}
+
 export function buildCake(T, M) {
   const parts = berryParts();
   const slices = Array.from({ length: SLICES }, (_, k) => buildSlice(k, M));

@@ -87,6 +87,10 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .uni .u{position:absolute;display:block;max-width:none;pointer-events:none}
 .uni-breathe{animation:breathe 3s ease-in-out infinite}
 @keyframes breathe{50%{transform:scale(1.012,.975)}}
+/* After the wish he dances in place: sways side to side pivoting on his seat, with a little bounce on every beat
+   (squash on the beat, stretch up between), and flaps his ears. The seat never moves, so he stays where he sits. */
+.party .uni-breathe{animation:dance 1s ease-in-out infinite}
+@keyframes dance{0%,50%,100%{transform:rotate(0) translateY(0) scale(1.03,.96)}12%,62%{transform:translateY(-1.6%) scale(.985,1.025)}25%{transform:rotate(-5deg) translateY(0) scale(1.01,.99)}75%{transform:rotate(5deg) translateY(0) scale(1.01,.99)}}
 .uni-wig.wiggle{animation:wiggle .6s ease-in-out}
 .uni-wig.nudge{animation:nudge .5s ease-in-out}
 @keyframes wiggle{20%{transform:rotate(-6deg)}40%{transform:rotate(5deg)}60%{transform:rotate(-3deg)}80%{transform:rotate(2deg)}}
@@ -107,6 +111,10 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .u-ear-r{transform:rotate(18deg)}
 .mood-sad .u-ear-l{transform:rotate(-38deg)}
 .mood-sad .u-ear-r{transform:rotate(38deg)}
+.party .u-ear-l{animation:earL .5s ease-in-out infinite alternate}
+.party .u-ear-r{animation:earR .5s ease-in-out infinite alternate}
+@keyframes earL{from{transform:rotate(-12deg)}to{transform:rotate(-30deg)}}
+@keyframes earR{from{transform:rotate(12deg)}to{transform:rotate(30deg)}}
 .u-mane{transform-origin:69% 33%;animation:wave 2.4s ease-in-out infinite}
 @keyframes wave{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(3deg)}}
 .party .u-spark{opacity:1;animation:hspark 1.4s ease-in-out infinite}
@@ -123,18 +131,22 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 /* Photo album: open 3D book */
 .album-view{z-index:8;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .album-view.open .lb-ui{opacity:1}
-/* An open two-page book seen close up: the stage is the whole spread, placed by album.js so the left page
-   (the photo) is centred on screen and the right page only peeks in at the edge. */
-.bk-stage{position:absolute;z-index:1;transform-origin:25% 50%;will-change:transform}
-.bk-book{position:absolute;inset:0;perspective:2400px;perspective-origin:25% 45%;transition:transform .6s cubic-bezier(.3,.7,.2,1)}
-.bk-book.closed{transform:translateX(-50%)} /* closed: the cover sits where the left page will be */
+/* An open two-page book seen close up: the stage is the whole spread, placed by album.js so the right page
+   (the photo) is centred on screen and the left page only peeks in at the edge. Closed, the cover lies right
+   where the right page will be, so opening only swings the cover over to the left. */
+.bk-stage{position:absolute;z-index:1;transform-origin:75% 50%;will-change:transform}
+.bk-book{position:absolute;inset:0;perspective:2400px;perspective-origin:75% 45%}
 .bk-back,.leaf{position:absolute;left:50%;top:0;width:50%;height:100%}
 .bk-back{border-radius:2px 7px 7px 2px;box-shadow:0 26px 50px rgba(15,6,2,.6),3px 3px 0 #E9DFCC,5px 5px 0 #D8CBB4,6px 7px 0 #6A3E22}
-.bk-book:not(.closed) .bk-back::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:100%;border-radius:7px 2px 2px 7px;background:inherit;box-shadow:0 26px 50px rgba(15,6,2,.6),-3px 3px 0 #E9DFCC,-5px 5px 0 #D8CBB4,-6px 7px 0 #6A3E22}
+.bk-back::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:100%;opacity:0;transition:opacity .15s .78s;border-radius:7px 2px 2px 7px;background:inherit;box-shadow:0 26px 50px rgba(15,6,2,.6),-3px 3px 0 #E9DFCC,-5px 5px 0 #D8CBB4,-6px 7px 0 #6A3E22}
+/* the board under the open cover shows once the cover has landed on it, and goes as soon as it lifts */
+.bk-book:not(.closed) .bk-back::before{opacity:1}
+.bk-book.closed .bk-back::before{transition:none}
 .leather{background-color:#7A4A30;background-image:var(--leather);background-size:170px;box-shadow:inset 0 0 22px rgba(30,12,4,.55),inset 0 0 0 1px rgba(255,220,180,.15)}
 .leaf{transform-origin:0 50%;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;transition:transform .85s cubic-bezier(.45,.05,.2,1)}
 .leaf.sheet{top:1.8%;height:96.4%;width:48.6%}
 .leaf.flipped{transform:rotateY(-180deg)}
+.leaf.buried{visibility:hidden}
 .no-anim .leaf{transition:none!important}
 .bf{position:absolute;inset:0;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .bf.back{transform:rotateY(180deg)}
@@ -145,7 +157,7 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .stitch{position:absolute;inset:6.5%;border:1.5px dashed rgba(236,200,150,.8);border-radius:7px;box-shadow:0 1px 0 rgba(20,8,2,.35)}
 .emboss{position:absolute;left:0;right:0;top:38%;text-align:center;font:700 4.2em/1 Georgia,"Times New Roman",serif;background:linear-gradient(180deg,#FBE7B5,#D2A456 60%,#A97A35);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1.5px 0 rgba(30,12,4,.6))}
 .endpaper{position:absolute;top:3%;bottom:3%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6em;padding:8%;background:#F4ECDD var(--paper);background-blend-mode:multiply;text-align:center}
-/* photo 1, pasted inside the cover: inset like the other pages, flush with the spine */
+/* the inside of the cover (dedication): inset like the other pages, flush with the spine */
 .cover-page{position:absolute;top:1.8%;bottom:1.8%;left:2.8%;right:0}
 .page.dedication{flex-direction:column;padding:12%;text-align:center}
 .endpaper.right{left:0;right:4%;box-shadow:inset 14px 0 18px -10px rgba(60,40,20,.35)}
@@ -224,7 +236,7 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 }
 
 @media (prefers-reduced-motion:reduce){
-  .bk,.say.pop,.all-text,.btn-main,.flame-flick,.uni-breathe,.u-mane,.party .u-spark,.party .u-glow,.unlocked .spk{animation:none!important}
+  .bk,.say.pop,.all-text,.btn-main,.flame-flick,.uni-breathe,.u-mane,.party .u-ear,.party .u-spark,.party .u-glow,.unlocked .spk{animation:none!important}
   .leaf{transition-duration:.01s!important}
   .all-text{animation:fadeIn .4s ease both!important}
   .shim.go{animation:none}

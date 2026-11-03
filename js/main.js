@@ -60,7 +60,7 @@ buildRoom($("sky"), { reduced });
 blowBtn.disabled = true;
 
 const world = await createWorld({
-  stage: $("stage"), ov: $("ov"), ui: U, messages, number: candleNumber, albumTitle: albumCfg.title || "", reduced, lowEnd,
+  stage: $("stage"), ov: $("ov"), ui: U, messages, number: candleNumber, topper: C.topper == null ? "" : String(C.topper), shirt: C.unicornShirt == null ? "" : String(C.unicornShirt), albumTitle: albumCfg.title || "", reduced, lowEnd,
   onSliceTap, onCandleTap, onUnicornTap, onAlbumTap: () => album.open(),
 });
 if (!world) {

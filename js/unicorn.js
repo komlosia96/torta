@@ -1,5 +1,6 @@
 // Plush unicorn, a boy: white minky with cool pastel tints, gold horn, blue-green-gold rainbow mane and tail,
-// short brows (no blush, no lashes). A little sad before the wish, smiling after it.
+// short brows (no blush, no lashes), wearing a blue t-shirt with a name on it. A little sad before the wish,
+// smiling after it.
 // Each part is a pre-rendered SVG image (fabric filters render once), stacked and animated with CSS transforms.
 // Art is drawn around the seat point (0,0).
 const RAD = Math.PI / 180;
@@ -57,6 +58,7 @@ function baseArt() {
   return `<defs>${PLUSH}${FAUX}${BLUR("b4", 4)}${BLUR("b3", 3)}${BLUR("b2", 2)}${BLUR("b1", 1)}${FUR}
 <radialGradient id="muz" cx=".45" cy=".3" r=".75"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".75" stop-color="#F6F2F4"/><stop offset="1" stop-color="#DCD3DD"/></radialGradient>
 <linearGradient id="lil" x1="0" x2="1"><stop offset="0" stop-color="#C39A48"/><stop offset=".42" stop-color="#FBE7B0"/><stop offset=".7" stop-color="#E8C676"/><stop offset="1" stop-color="#B58838"/></linearGradient>
+<linearGradient id="tee" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6AA6EE"/><stop offset="1" stop-color="#3D7BD0"/></linearGradient>
 <clipPath id="ct"><path d="M-14-55C-28-50-33-22-25-5Q0 2 25-5C33-22 28-50 14-55Z"/></clipPath><clipPath id="ch"><circle cx="0" cy="-78" r="24.5"/></clipPath></defs>
 <ellipse cx="0" cy="2" rx="50" ry="8" fill="#2E1A10" opacity=".45" filter="url(#b4)"/>
 ${tailArt(r)}
@@ -64,10 +66,19 @@ ${tailArt(r)}
   <ellipse cx="-22" cy="-14" rx="16" ry="15" fill="url(#fur)"/><ellipse cx="22" cy="-14" rx="16" ry="15" fill="url(#fur)"/>
   <path d="M-14-55C-28-50-33-22-25-5Q0 2 25-5C33-22 28-50 14-55Z" fill="url(#fur)"/>
   <g clip-path="url(#ct)"><path d="M-14-55C-28-50-33-22-25-5Q0 2 25-5C33-22 28-50 14-55Z" transform="translate(2.5 2)" fill="none" stroke="#9E93AE" stroke-width="9" opacity=".3" filter="url(#b4)"/></g>
+  <g clip-path="url(#ct)">
+    <path d="M-40-62H40V-30Q20-26 0-27.5Q-20-26-40-30Z" fill="url(#tee)"/>
+    <path d="M-14-55C-28-50-33-22-25-5Q0 2 25-5C33-22 28-50 14-55Z" transform="translate(2.5 2)" fill="none" stroke="#1E4A8A" stroke-width="8" opacity=".35" filter="url(#b4)"/>
+    <path d="M-40-30Q-20-26 0-27.5Q20-26 40-30" fill="none" stroke="#2C5FA8" stroke-width="1.6"/>
+    <path d="M-40-31.8Q-20-27.8 0-29.3Q20-27.8 40-31.8" fill="none" stroke="#9CC4F5" stroke-width=".6" stroke-dasharray="1.4 1.2" opacity=".8"/>
+  </g>
+  <path d="M-11-55.5Q0-48.5 11-55.5" fill="none" stroke="#2C5FA8" stroke-width="2.4" stroke-linecap="round"/>
   <ellipse cx="-31" cy="-4" rx="10" ry="6.5" fill="url(#fur)"/><ellipse cx="31" cy="-4" rx="10" ry="6.5" fill="url(#fur)"/>
   <path d="M-34-12Q-22-26-10-16M34-12Q22-26 10-16M0-54Q1-46 0-38" ${SEAM}/>
   <path d="M-15-38V-6Q-15 1-9 1Q-3 1-3-6V-36Z" fill="url(#fur)"/><path d="M3-36V-6Q3 1 9 1Q15 1 15-6V-38Z" fill="url(#fur)"/>
   <path d="M-4.5-34V-5M4.5-34V-5" ${SEAM}/>
+  <path d="M-18-41.5Q-9.5-45-1-40.5L-1.6-32.6Q-9.4-30-17.2-32.8Z" fill="url(#tee)"/><path d="M18-41.5Q9.5-45 1-40.5L1.6-32.6Q9.4-30 17.2-32.8Z" fill="url(#tee)"/>
+  <path d="M-17.2-32.8Q-9.4-30-1.6-32.6M17.2-32.8Q9.4-30 1.6-32.6" fill="none" stroke="#2C5FA8" stroke-width="1.4" stroke-linecap="round"/>
   <ellipse cx="-9" cy="-1" rx="5.5" ry="1.8" fill="#A69CB4" opacity=".35" filter="url(#b1)"/><ellipse cx="9" cy="-1" rx="5.5" ry="1.8" fill="#A69CB4" opacity=".35" filter="url(#b1)"/>
   <g clip-path="url(#ct)" opacity=".42"><ellipse cx="-13" cy="-32" rx="13" ry="17" fill="#CFE2F7" filter="url(#b4)"/><ellipse cx="13" cy="-22" rx="13" ry="15" fill="#CDEBDD" filter="url(#b4)"/><ellipse cx="0" cy="-47" rx="12" ry="7" fill="#FFF0C6" filter="url(#b4)"/></g>
   <ellipse cx="-9" cy="-3" rx="5.4" ry="3.2" fill="#AFC2E4"/><ellipse cx="9" cy="-3" rx="5.4" ry="3.2" fill="#AFC2E4"/>
@@ -125,7 +136,7 @@ const svgUrl = (vb, body) => "data:image/svg+xml;charset=utf-8," + encodeURIComp
 const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
 
 // seat: [x, y] in the scene viewBox; frame: [width, height] of that viewBox.
-export function createUnicorn(host, { label, onTap, seat, frame, scale = 1 }) {
+export function createUnicorn(host, { label, onTap, seat, frame, scale = 1, shirt = "" }) {
   const [SX, SY] = seat, [VW, VH] = frame;
   const place = (el, [x, y, w, h]) => {
     Object.assign(el.style, { left: ((SX + x * scale) / VW) * 100 + "%", top: ((SY + y * scale) / VH) * 100 + "%", width: ((w * scale) / VW) * 100 + "%", height: ((h * scale) / VH) * 100 + "%" });
@@ -155,6 +166,9 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1 }) {
   part("u-ear u-ear-l", [-10, -21, 20, 26], earArt(), [-25.5, -117, 20, 26]);
   part("u-ear u-ear-r", [-10, -21, 20, 26], earArt(), [5.5, -117, 20, 26]);
   part("u-base", [-96, -128, 150, 136], baseArt());
+  // The name on the shirt is inline SVG so it uses the page font (accents included). The plush is mirrored
+  // with CSS, so the text is mirrored back here to read the right way round.
+  if (shirt) inline("u-shirt", [-24, -54, 48, 13], "-24 -54 48 13", `<g transform="scale(-1 1)"><text x="0" y="-44" text-anchor="middle" textLength="${Math.min(30, 7 * [...shirt].length)}" lengthAdjust="spacingAndGlyphs" font-family="Quicksand,sans-serif" font-weight="700" font-size="10.5" fill="#FFFFFF" stroke="#1E4A8A" stroke-width=".5" paint-order="stroke">${shirt.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))}</text></g>`);
   part("u-face f-sad", [-30, -100, 60, 50], sadArt());
   part("u-face f-happy", [-30, -100, 60, 50], happyArt());
   part("u-face f-blink", [-30, -100, 60, 50], blinkArt());

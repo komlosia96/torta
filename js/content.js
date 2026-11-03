@@ -51,6 +51,12 @@ export const CONTENT = {
   // Wax number candles on the cake, one per digit.
   candleNumber: "26",
 
+  // Small sign on a pick stuck in the cream next to the candles. "" shows no sign.
+  topper: "Vegan!",
+
+  // Name on the unicorn's blue t-shirt. "" leaves the shirt plain.
+  unicornShirt: "Ákos",
+
   // The leather photo album next to the cake.
   // title: gold lettering on the cover. dedication: optional line on the page facing photo 1, "" shows nothing.
   album: {

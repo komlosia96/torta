@@ -220,6 +220,34 @@ export function pageEdges() {
 
 // Message written on top of a slice in piped icing. Lines get wider toward the rim.
 // widthAt(t) gives the usable width (0..1 of the canvas) for a line centred at height t (0 top, 1 bottom).
+// Cake topper card: cream paper with rounded corners, a fine green frame, a small leaf and handwritten text.
+// Outside the rounded card the texture is transparent (the material uses alphaTest).
+export function signTex(text, W = 512, H = 256) {
+  const [c, ctx] = canvas(W, H), r = 34;
+  const card = (i, rr) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(i, i, W - 2 * i, H - 2 * i, rr); else ctx.rect(i, i, W - 2 * i, H - 2 * i); };
+  card(4, r); ctx.fillStyle = "#FFF7EA"; ctx.fill();
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "rgba(255,255,255,.5)"); g.addColorStop(1, "rgba(200,170,130,.18)");
+  card(4, r); ctx.fillStyle = g; ctx.fill();
+  card(18, r - 12); ctx.lineWidth = 5; ctx.strokeStyle = "#7DAA6A"; ctx.stroke();
+  const fam = '"Caveat","Patrick Hand",cursive';
+  let size = 150;
+  ctx.font = `700 ${size}px ${fam}`;
+  while (size > 40 && ctx.measureText(text).width > W * 0.66) { size -= 6; ctx.font = `700 ${size}px ${fam}`; }
+  const tw = ctx.measureText(text).width, lw = size * 0.5, x0 = (W - tw - lw * 0.9) / 2 + lw * 0.9, y = H * 0.54;
+  // Leaf left of the text.
+  ctx.save();
+  ctx.translate(x0 - lw * 0.55, y - size * 0.05);
+  ctx.rotate(-0.7);
+  ctx.beginPath(); ctx.moveTo(0, -lw * 0.5); ctx.quadraticCurveTo(lw * 0.42, 0, 0, lw * 0.5); ctx.quadraticCurveTo(-lw * 0.42, 0, 0, -lw * 0.5);
+  ctx.fillStyle = "#5E9E4E"; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, -lw * 0.42); ctx.lineTo(0, lw * 0.62); ctx.lineWidth = 3; ctx.strokeStyle = "#3F7535"; ctx.stroke();
+  ctx.restore();
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#2F6B33"; ctx.fillText(text, x0, y);
+  return toTex(c);
+}
+
 export function icingText(text, W, H, widthAt) {
   const [c, ctx] = canvas(W, H);
   const fam = '"Caveat","Patrick Hand",cursive';
