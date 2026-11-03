@@ -143,8 +143,14 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .bk-stage{position:absolute;z-index:1;transform-origin:75% 50%;will-change:transform}
 .bk-book{position:absolute;inset:0;perspective:2400px;perspective-origin:75% 45%}
 .bk-back,.leaf{position:absolute;left:50%;top:0;width:50%;height:100%}
-.bk-back{border-radius:2px 7px 7px 2px;box-shadow:0 26px 50px rgba(15,6,2,.6),3px 3px 0 #E9DFCC,5px 5px 0 #D8CBB4,6px 7px 0 #6A3E22}
-.bk-back::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:100%;opacity:0;transition:opacity .15s .78s;border-radius:7px 2px 2px 7px;background:inherit;box-shadow:0 26px 50px rgba(15,6,2,.6),-3px 3px 0 #E9DFCC,-5px 5px 0 #D8CBB4,-6px 7px 0 #6A3E22}
+/* Open, it reads as one book: both boards lie flat with a crease at the spine, and the paper lies on them as
+   two page blocks (.bk-pages, edges drawn by album.js, thicker on the side with more pages). */
+.bk-back{border-radius:2px 7px 7px 2px}
+.bk-back.leather{box-shadow:0 26px 50px rgba(15,6,2,.6),inset 10px 0 12px -6px rgba(20,8,2,.6),inset 0 0 22px rgba(30,12,4,.55),inset 0 0 0 1px rgba(255,220,180,.15)}
+.bk-back::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:100%;opacity:0;transition:opacity .15s .78s;border-radius:7px 2px 2px 7px;background:inherit;box-shadow:0 26px 50px rgba(15,6,2,.6),inset -10px 0 12px -6px rgba(20,8,2,.6),inset 0 0 22px rgba(30,12,4,.55),inset 0 0 0 1px rgba(255,220,180,.15)}
+.bk-pages{position:absolute;top:1.8%;height:96.4%;width:48.6%;border-radius:1px} /* transparent: only its edges (outer box-shadows) show around the top page */
+.bk-pages.l{right:50%;z-index:11}
+.bk-pages.r{left:50%;z-index:1}
 /* the board under the open cover shows once the cover has landed on it, and goes as soon as it lifts */
 .bk-book:not(.closed) .bk-back::before{opacity:1}
 .bk-book.closed .bk-back::before{transition:none}
@@ -161,7 +167,14 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .bf.front{transform:translateZ(.5px)}
 .bf.back{transform:rotateY(180deg) translateZ(.5px)}
 .cover .front{border-radius:2px 8px 8px 2px}
-.cover .back{border-radius:8px 2px 2px 8px}
+.cover .back{border-radius:8px 2px 2px 8px;box-shadow:inset -10px 0 12px -6px rgba(20,8,2,.6),inset 0 0 22px rgba(30,12,4,.55),inset 0 0 0 1px rgba(255,220,180,.15)}
+/* The back cover leaf is drawn exactly like the board under the right page; while it turns (closing from the
+   back) the board itself is hidden, and the leaf carries the board's drop shadow. */
+.back-cover .front{border-radius:2px 7px 7px 2px;box-shadow:inset 10px 0 12px -6px rgba(20,8,2,.6),inset 0 0 22px rgba(30,12,4,.55),inset 0 0 0 1px rgba(255,220,180,.15)}
+.from-back .back-cover .front{box-shadow:0 26px 50px rgba(15,6,2,.6),inset 10px 0 12px -6px rgba(20,8,2,.6),inset 0 0 22px rgba(30,12,4,.55),inset 0 0 0 1px rgba(255,220,180,.15)}
+.back-cover .back{border-radius:8px 2px 2px 8px}
+.bk-book.from-back .bk-back{visibility:hidden}
+.bk-book.from-back .bk-back::before{visibility:visible}
 /* No animated layers inside a page face (no shade, no fade-in): Safari ignores backface-visibility for them,
    so they flashed through from the hidden side of a turning page. */
 .stitch{position:absolute;inset:6.5%;border:1.5px dashed rgba(236,200,150,.8);border-radius:7px;box-shadow:0 1px 0 rgba(20,8,2,.35)}
@@ -173,8 +186,9 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .endpaper.right{left:0;right:4%;box-shadow:inset 14px 0 18px -10px rgba(60,40,20,.35)}
 .dedic{margin:0;font:700 1.35em/1.25 var(--hand);color:var(--ink)}
 .page{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:6%;background:#FBF6EC var(--paper);background-blend-mode:multiply}
-.front .page{box-shadow:inset 16px 0 20px -12px rgba(60,40,20,.38)}
-.back .page{box-shadow:inset -16px 0 20px -12px rgba(60,40,20,.38)}
+/* each page curves down into the gutter at the spine, so the two pages meet in a soft valley */
+.front .page{background-image:linear-gradient(90deg,rgba(110,80,45,.22),rgba(110,80,45,.07) 9%,rgba(110,80,45,0) 20%,rgba(110,80,45,0) 92%,rgba(110,80,45,.06)),var(--paper);box-shadow:inset 22px 0 24px -14px rgba(60,40,20,.42),inset 3px 0 4px -2px rgba(60,40,20,.4)}
+.back .page{background-image:linear-gradient(270deg,rgba(110,80,45,.22),rgba(110,80,45,.07) 9%,rgba(110,80,45,0) 20%,rgba(110,80,45,0) 92%,rgba(110,80,45,.06)),var(--paper);box-shadow:inset -22px 0 24px -14px rgba(60,40,20,.42),inset -3px 0 4px -2px rgba(60,40,20,.4)}
 .pg-print{position:relative;margin:0;width:78%;padding:5% 5% 0;background:#FFFEFB;box-shadow:0 1px 2px rgba(40,25,15,.3),0 5px 12px rgba(40,25,15,.18);transform:rotate(var(--r))}
 .pg-print::before,.pg-print::after{content:"";position:absolute;top:-.55em;width:2.8em;height:1.1em;background:rgba(238,222,190,.8);box-shadow:0 1px 1px rgba(0,0,0,.08)}
 .pg-print::before{left:-.8em;transform:rotate(-32deg)}
@@ -199,7 +213,7 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .btn-main{pointer-events:auto;min-height:48px;padding:.6em 1.6em;border-radius:999px;color:var(--ink);font-weight:700;font-size:clamp(17px,4.8vw,20px);cursor:pointer;background:linear-gradient(180deg,rgba(255,250,244,.92),rgba(250,226,214,.88));border:1px solid rgba(255,255,255,.8);box-shadow:0 8px 22px rgba(60,30,22,.28),0 0 0 0 rgba(255,214,170,.6);animation:breatheBtn 2.4s ease-in-out infinite}
 .btn-main:active{transform:scale(.96)}
 @keyframes breatheBtn{50%{box-shadow:0 8px 22px rgba(60,30,22,.28),0 0 0 8px rgba(255,214,170,0),0 0 26px rgba(255,200,150,.65)}}
-.hint{margin:0;font-size:clamp(14px,3.9vw,16px);font-weight:600;line-height:1.3;max-width:340px;color:#FFF5EA;text-shadow:0 1px 2px rgba(30,15,8,.8),0 0 12px rgba(30,15,8,.6)}
+.hint{margin:0;white-space:pre-line;font-size:clamp(14px,3.9vw,16px);font-weight:600;line-height:1.3;max-width:340px;color:#FFF5EA;text-shadow:0 1px 2px rgba(30,15,8,.8),0 0 12px rgba(30,15,8,.6)}
 .hint.small{font-size:clamp(13px,3.5vw,14px)}
 .meter{display:flex;gap:5px;height:14px;align-items:flex-end}
 .meter i{width:7px;height:4px;border-radius:4px;background:#C98A6E;transition:height .08s}

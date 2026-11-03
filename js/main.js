@@ -204,7 +204,7 @@ function showSoundHint() {
 function setWishUI() {
   blowBtn.hidden = false;
   meter.hidden = true;
-  hint.textContent = U.blowHint;
+  hint.textContent = ""; // the wish text only shows once the button is tapped
   hint2.textContent = U.fallbackHint;
   hint2.hidden = !inApp;
   cake.setCandlesTappable(true); // tapping a candle always works, mic or not
@@ -231,10 +231,9 @@ function showFallback(reason) {
   if (state === S.CELEBRATE || state === S.PLAY) return;
   if (DEV) console.log("[torta] fallback:", reason);
   cake.setTapHint(true);
-  if (reason === "timeout") {
-    hint2.textContent = U.fallbackHint;
-    hint2.hidden = false;
-  } else {
+  // On a timeout the mic keeps listening and blowHint already says to tap the candles. Without a mic the hint
+  // only says to tap.
+  if (reason !== "timeout") {
     cake.setBlowLevel(0);
     meter.hidden = true;
     hint.textContent = U.fallbackHint;

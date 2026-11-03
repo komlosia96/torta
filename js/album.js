@@ -38,6 +38,9 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   list.forEach((ph, i) => {
     leavesHtml += `<div class="leaf sheet"><div class="bf front">${photoPage(ph, i + 1)}</div><div class="bf back"><div class="page"></div></div></div>`;
   });
+  // The back cover, leaves[n + 1]: it looks just like the board under the last page and only ever turns when
+  // the book is closed from the back (forward from the last photo).
+  leavesHtml += `<div class="leaf back-cover"><div class="bf front leather"><div class="endpaper right"></div></div><div class="bf back leather"><div class="stitch"></div></div></div>`;
 
   const view = document.createElement("div");
   view.className = "overlay album-view";
@@ -45,7 +48,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   view.setAttribute("role", "dialog");
   view.setAttribute("aria-modal", "true");
   view.setAttribute("aria-label", ui.albumAria);
-  view.innerHTML = `<div class="scrim"></div><div class="bk-stage"><div class="bk-book closed"><div class="bk-back leather"><div class="endpaper right"></div></div>${leavesHtml}</div></div>
+  view.innerHTML = `<div class="scrim"></div><div class="bk-stage"><div class="bk-book closed"><div class="bk-back leather"><div class="endpaper right"></div></div><div class="bk-pages l"></div><div class="bk-pages r"></div>${leavesHtml}</div></div>
 <div class="lb-ui"><div class="lb-nav"><button type="button" class="lb-arrow prev" aria-label="${esc(ui.prevPage)}">&#8249;</button><span class="lb-count" aria-live="polite"></span><button type="button" class="lb-arrow next" aria-label="${esc(ui.nextPage)}">&#8250;</button></div></div>`;
   document.body.appendChild(view);
   view.style.setProperty("--leather", `url("${LEATHER_TILE}")`);
@@ -53,17 +56,23 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
 
   const q = s => view.querySelector(s);
   const stage = q(".bk-stage"), book = q(".bk-book"), leaves = [...view.querySelectorAll(".leaf")];
+  const blockL = q(".bk-pages.l"), blockR = q(".bk-pages.r");
   // No close button (author request): a tap next to the book, Escape, or turning past the last photo closes it.
   const btnPrev = q(".prev"), btnNext = q(".next"), count = q(".lb-count");
   const focusables = [btnPrev, btnNext];
   let f = 0, isOpen = false, busy = false, lastFocus = null, turnTimers = [], seq = 0;
 
-  // The "camera": one page as large as fits between the close button and the arrows, the spread placed so the
-  // right page is centred and the left page runs off the left edge of the screen.
+  // The "camera": one page as large as fits above the arrows, the spread placed so the right page is about
+  // centred and the left page runs off the left edge of the screen. On a phone the spread moves right as far as
+  // the right edge allows, so enough of the left page shows to read as an open book.
   function size() {
-    const vw = innerWidth, vh = innerHeight, pw = Math.min(vw * 0.84, 440, (vh * 0.64) / 1.36), ph = pw * 1.36;
-    Object.assign(stage.style, { width: 2 * pw + "px", height: ph + "px", fontSize: pw * 0.06 + "px", left: (vw - pw) / 2 - pw + "px", top: (vh - ph) / 2 - vh * 0.035 + "px" });
+    const vw = innerWidth, vh = innerHeight, pw = Math.min(vw * 0.8, 440, (vh * 0.64) / 1.36), ph = pw * 1.36;
+    const side = (vw - pw) / 2, shift = Math.max(0, Math.min(vw * 0.17 - side, side - 16));
+    Object.assign(stage.style, { width: 2 * pw + "px", height: ph + "px", fontSize: pw * 0.06 + "px", left: side - pw + shift + "px", top: (vh - ph) / 2 - vh * 0.035 + "px" });
   }
+
+  // Page edges on the outer side and the bottom of a page block, a pixel per layer, alternating light and shade.
+  const edges = (k, dir) => k ? [...Array(k)].map((_, j) => `${dir * (j + 1)}px ${j + 1}px 0 ${j % 2 ? "#CFC1A8" : "#EEE5D4"}`).concat(`0 2px 6px rgba(40,20,5,.3)`).join(",") : "none";
 
   // Load the photos on the right page in view and its neighbours (full size, then thumb, then the placeholder stays).
   // Photo p is on leaves[p]. A photo only shows once decoded, so it never pops in while its page turns.
@@ -88,21 +97,26 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   // turn finishes first; otherwise a page in mid-air drops behind the stack for a frame (the flicker).
   // Leaves buried under the top page on either side are hidden, so only a few page layers stay composited.
   function render() {
+    const top = Math.min(f, n + 1); // f is n + 2 once the back cover is turned, but the last page stays on the left too
     leaves.forEach((el, i) => {
       const flipped = i < f, turning = el.classList.contains("turning");
       el.classList.toggle("flipped", flipped);
-      el.classList.toggle("buried", !turning && i > 0 && (i < f - 2 || i > f + 1));
-      el.style.zIndex = turning ? 300 + +el.dataset.seq : flipped ? 10 + i : 200 - i;
+      el.classList.toggle("buried", !turning && i > 0 && (i < top - 2 || i > top + 1));
+      el.style.zIndex = turning ? 300 + +el.dataset.seq : flipped ? (i ? 12 + i : 10) : 200 - i;
     });
+    // The left block lies on the open cover (z 10) under the turned pages, the right one under the unturned.
+    const thick = pages => (pages > 0 ? 1 + Math.round((4 * pages) / n) : 0);
+    blockL.style.boxShadow = edges(thick(f - 1), -1);
+    blockR.style.boxShadow = edges(thick(n - f), 1);
     book.classList.toggle("closed", f === 0);
-    count.textContent = f >= FIRST ? `${f} / ${n}` : "";
+    count.textContent = f >= FIRST && f <= n ? `${f} / ${n}` : "";
     btnPrev.disabled = f === 0;
     loadImages();
   }
 
   function go(nf) {
     nf = Math.max(0, Math.min(MAX, nf));
-    if (nf === f) return;
+    if (nf === f || busy) return; // no turns while the book opens or closes
     const turning = nf > f ? f : nf;
     f = nf;
     const el = leaves[turning];
@@ -138,8 +152,8 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     turnTimers.push(setTimeout(() => { settle(); render(); }, 880));
   }
 
-  // Forward from the last photo closes the book and puts it back on the table.
-  const forward = () => (f >= MAX ? close() : go(f + 1));
+  // Forward from the last photo closes the book from the back and puts it back on the table.
+  const forward = () => (f >= MAX ? closeBack() : go(f + 1));
 
   // Jump without animation (used when the zoomed photo viewer closes on another photo).
   function jump(nf) {
@@ -183,25 +197,66 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     busy = true;
     const wasOpen = f > 0;
     if (wasOpen) shut(); else settle();
-    setTimeout(() => {
-      view.classList.remove("open");
-      const kf = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: "none", opacity: 1 }, { transform: flyTransform(), opacity: 0.7 }];
-      let fly = null;
-      const done = () => {
-        if (!isOpen) return;
-        view.hidden = true;
-        // The fly-back fills forwards so the book does not snap back before it is hidden; drop it once hidden,
-        // or it keeps overriding the next opening (small, turned and faded in the corner).
-        if (fly) fly.cancel();
-        anchor.setVisible(true);
-        isOpen = busy = false;
-        document.removeEventListener("keydown", onKey);
-        if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
-      };
-      fly = stage.animate(kf, { duration: reduced ? 180 : 460, easing: "cubic-bezier(.5,0,.75,.4)", fill: "forwards" });
-      fly.finished.then(done, done);
-      setTimeout(done, reduced ? 260 : 540);
-    }, wasOpen && !reduced ? 820 : 0);
+    setTimeout(() => flyBack("none"), wasOpen && !reduced ? 820 : 0);
+  }
+
+  // Forward from the last photo closes the book like a real one read to the end: the last page and the back
+  // cover swing over onto the left together (the page on top while they rise, the back cover once past
+  // upright, so it lands outermost), then the closed book turns over, front up, and flies back to the table.
+  // The back cover leaf stands in for the board under the right page while it turns (.from-back hides it).
+  function closeBack() {
+    if (!isOpen || busy) return;
+    if (reduced) return close();
+    busy = true;
+    const pw = stage.getBoundingClientRect().width / 2, last = leaves[n], back = leaves[n + 1];
+    settle();
+    book.classList.add("from-back");
+    [back, last].forEach(el => { el.dataset.seq = ++seq; el.classList.add("turning"); });
+    f = n + 2;
+    render();
+    turnTimers.push(setTimeout(() => { back.dataset.seq = ++seq; render(); }, 307));
+    // Then the closed book (back up, on the left half, mostly off a phone screen) is turned over on its spine
+    // towards the viewer: edge-on at the midpoint, where it swaps to the closed book lying front up on the
+    // right half, which is where the book always is when closed, in the middle of the screen.
+    const P = "perspective(1800px) ", T = 300, ease = { duration: T, fill: "forwards" };
+    const onSpine = a => `${P}translateX(${-pw / 2}px) rotateY(${a}deg) translateX(${pw / 2}px)`; // origin is the right half's centre
+    let flip = null;
+    turnTimers.push(setTimeout(() => {
+      [back, last].forEach(el => el.classList.remove("turning")); // not settle(): it would cancel the steps below
+      render();
+      flip = stage.animate([{ transform: onSpine(0) }, { transform: onSpine(90) }], { ...ease, easing: "cubic-bezier(.4,0,1,1)" });
+    }, 880));
+    turnTimers.push(setTimeout(() => {
+      if (flip) flip.cancel();
+      book.classList.remove("from-back");
+      jump(0);
+      flip = stage.animate([{ transform: onSpine(-90) }, { transform: onSpine(0) }], { ...ease, easing: "cubic-bezier(0,0,.6,1)" });
+    }, 880 + T));
+    turnTimers.push(setTimeout(() => {
+      if (flip) flip.cancel();
+      flyBack("none");
+    }, 880 + 2 * T + 80));
+  }
+
+  // The closed book flies back to the table (from `from`, the transform it is shown at), then the viewer hides.
+  function flyBack(from) {
+    view.classList.remove("open");
+    const kf = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: from, opacity: 1 }, { transform: flyTransform(), opacity: 0.7 }];
+    let fly = null;
+    const done = () => {
+      if (!isOpen) return;
+      view.hidden = true;
+      // The fly-back fills forwards so the book does not snap back before it is hidden; drop it once hidden,
+      // or it keeps overriding the next opening (small, turned and faded in the corner).
+      if (fly) fly.cancel();
+      anchor.setVisible(true);
+      isOpen = busy = false;
+      document.removeEventListener("keydown", onKey);
+      if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+    };
+    fly = stage.animate(kf, { duration: reduced ? 180 : 460, easing: "cubic-bezier(.5,0,.75,.4)", fill: "forwards" });
+    fly.finished.then(done, done);
+    setTimeout(done, reduced ? 260 : 540);
   }
 
   function onKey(e) {
