@@ -58,6 +58,12 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .spark{position:absolute;left:0;top:0;width:12px;height:12px;margin:-6px;color:var(--c);animation:spark .7s ease-out forwards}
 .spark svg,.fheart svg{display:block;width:100%;height:100%;fill:currentColor}
 @keyframes spark{from{transform:translate(0,0) scale(.4);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(1) rotate(90deg);opacity:0}}
+/* blown kisses from the plush after the wish (main.js sendKisses), above the scene, below the UI */
+.kisses{position:fixed;width:0;height:0;z-index:5;pointer-events:none}
+.kiss{position:absolute;left:-11px;top:-7px;width:22px;height:15px;color:#E23E5F;opacity:0;filter:drop-shadow(0 1px 1px rgba(80,10,30,.35));animation:kiss 1.7s cubic-bezier(.2,.7,.3,1) forwards}
+.kiss svg{display:block;width:100%;height:100%;fill:currentColor}
+@keyframes kissStill{0%{opacity:0;transform:translate(calc(var(--dx) * .4),calc(var(--dy) * .4))}30%,70%{opacity:1;transform:translate(calc(var(--dx) * .4),calc(var(--dy) * .4))}100%{opacity:0;transform:translate(calc(var(--dx) * .4),calc(var(--dy) * .4))}}
+@keyframes kiss{0%{opacity:0;transform:translate(0,0) scale(.3)}15%{opacity:1}75%{opacity:.95}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(var(--s))}}
 .fheart{position:absolute;width:14px;height:14px;color:#F6A9B8;opacity:0;animation:fheart 4s ease-in-out forwards}
 @keyframes fheart{0%{opacity:0;transform:translateY(0) scale(.6)}20%{opacity:.9}100%{opacity:0;transform:translate(var(--dx),-46px) scale(1.1)}}
 
@@ -250,6 +256,7 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 @media (prefers-reduced-motion:reduce){
   .bk,.say.pop,.all-text,.btn-main,.flame-flick,.uni-breathe,.u-mane,.party .u-ear,.party .u-spark,.party .u-glow,.unlocked .spk{animation:none!important}
   .leaf{transition-duration:.01s!important}
+  .kiss{animation:kissStill 1.4s ease forwards!important}
   .all-text{animation:fadeIn .4s ease both!important}
   .shim.go{animation:none}
 }

@@ -165,6 +165,28 @@ function spawnHeart() {
   say.appendChild(h);
 }
 
+// Blown kisses: lip prints that leave the plush's mouth and float up and out towards her, growing as they come.
+const KISS = '<svg viewBox="0 0 24 16"><path d="M1.5 8C4.5 4.2 7.6 2.4 10 3.8C11 3 13 3 14 3.8C16.4 2.4 19.5 4.2 22.5 8C17.5 7.2 6.5 7.2 1.5 8Z"/><path d="M1.5 8.6C6.5 8 17.5 8 22.5 8.6C19.4 13 15.6 15 12 15C8.4 15 4.6 13 1.5 8.6Z"/></svg>';
+function sendKisses() {
+  const h = world.unicornHead(), host = document.createElement("div");
+  host.className = "kisses";
+  host.style.left = h.x + "px";
+  host.style.top = h.y + h.r * 0.45 + "px";
+  for (let i = 0; i < 6; i++) {
+    const k = document.createElement("span");
+    k.className = "kiss";
+    k.innerHTML = KISS;
+    k.style.setProperty("--dx", (-150 + Math.random() * 130).toFixed(0) + "px");
+    k.style.setProperty("--dy", (-90 - Math.random() * 150).toFixed(0) + "px");
+    k.style.setProperty("--rot", ((Math.random() - 0.5) * 50).toFixed(0) + "deg");
+    k.style.setProperty("--s", (1.1 + Math.random() * 0.9).toFixed(2));
+    k.style.animationDelay = i * 110 + "ms";
+    host.appendChild(k);
+  }
+  body.appendChild(host);
+  setTimeout(() => host.remove(), 2400);
+}
+
 function toast(msg) {
   toastEl.textContent = msg;
   toastEl.classList.add("show");
@@ -294,7 +316,8 @@ function onUnicornTap() {
   if (state === S.PLAY || state === S.CELEBRATE) {
     audio.ensureAudio();
     cake.unicorn.react(true);
-    audio.squeak();
+    audio.kiss();
+    sendKisses();
   } else cake.unicorn.react(false);
 }
 
@@ -338,6 +361,7 @@ function reset() {
   say.classList.remove("pop", "happy");
   sayText.textContent = C.intro.text;
   say.querySelectorAll(".fheart").forEach(e => e.remove());
+  document.querySelectorAll(".kisses").forEach(e => e.remove());
   placeSay();
   body.classList.remove("lights-on", "candles-out");
   cake.setLights(false);

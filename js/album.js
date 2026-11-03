@@ -46,16 +46,16 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   view.setAttribute("aria-modal", "true");
   view.setAttribute("aria-label", ui.albumAria);
   view.innerHTML = `<div class="scrim"></div><div class="bk-stage"><div class="bk-book closed"><div class="bk-back leather"><div class="endpaper right"></div></div>${leavesHtml}</div></div>
-<div class="lb-ui"><button type="button" class="close-btn lb-close">${esc(ui.close)}</button>
-<div class="lb-nav"><button type="button" class="lb-arrow prev" aria-label="${esc(ui.prevPage)}">&#8249;</button><span class="lb-count" aria-live="polite"></span><button type="button" class="lb-arrow next" aria-label="${esc(ui.nextPage)}">&#8250;</button></div></div>`;
+<div class="lb-ui"><div class="lb-nav"><button type="button" class="lb-arrow prev" aria-label="${esc(ui.prevPage)}">&#8249;</button><span class="lb-count" aria-live="polite"></span><button type="button" class="lb-arrow next" aria-label="${esc(ui.nextPage)}">&#8250;</button></div></div>`;
   document.body.appendChild(view);
   view.style.setProperty("--leather", `url("${LEATHER_TILE}")`);
   view.style.setProperty("--paper", `url("${PAPER_TILE}")`);
 
   const q = s => view.querySelector(s);
   const stage = q(".bk-stage"), book = q(".bk-book"), leaves = [...view.querySelectorAll(".leaf")];
-  const btnClose = q(".lb-close"), btnPrev = q(".prev"), btnNext = q(".next"), count = q(".lb-count");
-  const focusables = [btnClose, btnPrev, btnNext];
+  // No close button (author request): a tap next to the book, Escape, or turning past the last photo closes it.
+  const btnPrev = q(".prev"), btnNext = q(".next"), count = q(".lb-count");
+  const focusables = [btnPrev, btnNext];
   let f = 0, isOpen = false, busy = false, lastFocus = null, turnTimers = [], seq = 0;
 
   // The "camera": one page as large as fits between the close button and the arrows, the spread placed so the
@@ -112,6 +112,32 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     turnTimers.push(setTimeout(() => { el.classList.remove("turning"); render(); }, reduced ? 50 : 880));
   }
 
+  // Stop every turn in flight, so no leaf is left marked as turning (it would stay on top and never be hidden).
+  function settle() {
+    turnTimers.forEach(clearTimeout);
+    turnTimers = [];
+    leaves.forEach(el => el.classList.remove("turning"));
+  }
+
+  // Close the book where it is, like a real one: the whole left stack (the cover, the pages under it and any
+  // page still in the air) swings back over onto the right in one go. While it rises the top page of the stack
+  // is drawn on top; once it is past upright (about 307 ms into the 850 ms turn) the cover is, so it lands
+  // outermost. The page lying on the right (leaf f) is held too, so it stays in view until the stack covers it.
+  // Pages buried in the stack stay hidden and just change sides.
+  function shut() {
+    const ids = [...new Set([0, f - 2, f - 1, f, ...leaves.map((el, i) => (el.classList.contains("turning") ? i : -1))])]
+      .filter(i => i >= 0 && i < leaves.length).sort((a, b) => a - b);
+    settle();
+    const order = list => list.forEach(i => { leaves[i].dataset.seq = ++seq; });
+    order(ids);
+    ids.forEach(i => leaves[i].classList.add("turning"));
+    f = 0;
+    render();
+    if (reduced) { settle(); render(); return; }
+    turnTimers.push(setTimeout(() => { order([...ids].reverse()); render(); }, 307));
+    turnTimers.push(setTimeout(() => { settle(); render(); }, 880));
+  }
+
   // Forward from the last photo closes the book and puts it back on the table.
   const forward = () => (f >= MAX ? close() : go(f + 1));
 
@@ -136,8 +162,9 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     isOpen = busy = true;
     lastFocus = document.activeElement;
     stage.getAnimations().forEach(a => a.cancel()); // never let an earlier fly-back hold the book small and faded
+    settle();
     size();
-    jump(0);
+    jump(0); // always opens on photo 1
     view.hidden = false;
     void view.offsetWidth;
     view.classList.add("open");
@@ -146,18 +173,16 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     stage.animate(kf, { duration: reduced ? 200 : 560, easing: "cubic-bezier(.3,.7,.2,1)" });
     // Open the cover: photo 1 is on its inside.
     turnTimers.push(setTimeout(() => { busy = false; go(FIRST); }, reduced ? 220 : 620));
-    btnClose.focus({ preventScroll: true });
+    btnNext.focus({ preventScroll: true });
     document.addEventListener("keydown", onKey);
   }
 
+  // Closes on the page it is on (no jump back to photo 1 first), then flies back to the table.
   function close() {
     if (!isOpen || busy) return;
     busy = true;
-    turnTimers.forEach(clearTimeout);
-    turnTimers = [];
-    if (f > 1) jump(1);
     const wasOpen = f > 0;
-    if (wasOpen) go(0);
+    if (wasOpen) shut(); else settle();
     setTimeout(() => {
       view.classList.remove("open");
       const kf = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: "none", opacity: 1 }, { transform: flyTransform(), opacity: 0.7 }];
@@ -192,13 +217,13 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   }
 
   btn.addEventListener("click", open);
-  btnClose.addEventListener("click", close);
   btnPrev.addEventListener("click", () => go(f - 1));
   btnNext.addEventListener("click", forward);
 
   // Touch and mouse anywhere in the viewer: swipe left = turn the page forward (next photo), swipe right = back.
-  // A tap on the photo zooms it, on the left edge of the screen turns back, on the right side turns forward,
-  // above or below the book closes the album. The close and arrow buttons handle their own clicks.
+  // A tap on the photo zooms it, elsewhere on the left of the book turns back, elsewhere on the right turns
+  // forward, and next to the book (above, below or right of it) closes the album. The arrows handle their own
+  // clicks.
   let sx = 0, sy = 0, down = false;
   view.addEventListener("pointerdown", e => {
     if (busy || e.target.closest(".lb-ui button")) return;
@@ -213,7 +238,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.2) return dx < 0 ? forward() : go(f - 1);
     if (Math.hypot(dx, dy) > 10) return;
     const r = stage.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientY < r.top || e.clientY > r.bottom) return close();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return close();
     // With pointer capture the event target is the viewer, so find what is under the finger.
     const hit = document.elementFromPoint(e.clientX, e.clientY), photo = hit && hit.closest(".pg-photo");
     if (photo && f >= FIRST) return onPhoto(+photo.dataset.id);

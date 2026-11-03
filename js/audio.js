@@ -120,6 +120,11 @@ function blip(type, f0, f1, dur, vol) {
 }
 export const pop = () => blip("triangle", 720, 180, 0.1, 0.55);
 export const squeak = () => blip("sine", 950, 1700, 0.14, 0.4);
+// A blown kiss: a soft rising "mwa" and the little smack at its end.
+export function kiss() {
+  blip("sine", 360, 780, 0.17, 0.32);
+  setTimeout(() => blip("triangle", 1500, 520, 0.05, 0.28), 150);
+}
 
 // Mute fades rather than cutting hard; the song keeps its place underneath.
 export function setMuted(m) {

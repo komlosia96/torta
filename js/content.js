@@ -16,7 +16,7 @@ export const CONTENT = {
     blowButton: "Fújd el a gyertyákat!",
     blowHint: "Kívánj valamit, aztán fújj a telefonra!",
     fallbackHint: "Nem megy a mikrofon? Koppints a gyertyákra!",
-    afterHint: "Koppints egy szeletre vagy nyisd ki az albumot!",
+    afterHint: "Koppints a szeletre, nyisd ki az albumot vagy bökd meg Ákost.",
     lockedToast: "Előbb fújd el a gyertyákat!",
     close: "Bezár",
     soundOn: "Hang be",
