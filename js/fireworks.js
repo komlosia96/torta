@@ -1,7 +1,7 @@
 // Fireworks in the sky above the cake (on a canvas between the bokeh backdrop and the 3D scene, so they never
 // cover the cake). A short show of rockets that rise, burst into glittering sparks and fade. The first show after
 // the wish is the big one (author request): larger, fuller bursts, more rockets and a finale, with the sky dimmed
-// behind them (the canvas' own background, .fireworks.dim) until the last sparks fade.
+// behind them (the canvas' own background, .fireworks.fw-dim) until the last sparks fade.
 // Saturated colours (the backdrop is full of soft coral and rose lights, so pastel sparks would vanish into it): [colour, core].
 const PALETTES = [
   ["255,70,140", "255,225,240"], // pink
@@ -29,9 +29,9 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
 
   const pick = () => PALETTES[Math.floor(Math.random() * PALETTES.length)];
 
-  // k scales a rocket's burst (1 = the small show, about 1.7 for the big one).
+  // k scales a rocket's burst (1 = the small show, 2 for the big one).
   function launch(k = 1) {
-    const u = unit(), x = W * (0.12 + Math.random() * 0.76), top = H * (k > 1 ? 0.15 + Math.random() * 0.2 : 0.07 + Math.random() * 0.22); // big bursts lower, so they are not cut at the top
+    const u = unit(), x = W * (0.12 + Math.random() * 0.76), top = H * (k > 1 ? 0.2 + Math.random() * 0.16 : 0.07 + Math.random() * 0.22); // big bursts lower, so they are not cut at the top
     rockets.push({ x, y: H * 0.56, tx: x + (Math.random() - 0.5) * 40 * u, ty: top, t: 0, dur: 0.75 + Math.random() * 0.35, trail: [], pal: pick(), k });
     ensure();
   }
@@ -107,7 +107,7 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
     timers = [];
     rockets = [];
     sparks = [];
-    canvas.classList.remove("dim");
+    canvas.classList.remove("fw-dim");
   }
 
   addEventListener("resize", resize);
@@ -118,7 +118,7 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
     // longer and fuller (some rockets in pairs, then a finale of four at once) and dims the sky while it lasts.
     show({ big = false } = {}) {
       clear();
-      const n = big ? (lowEnd ? 9 : 13) : lowEnd ? 6 : 9, gap = big ? 560 : 650, k = big ? 1.7 : 1;
+      const n = big ? (lowEnd ? 9 : 13) : lowEnd ? 6 : 9, gap = big ? 560 : 650, k = big ? 2 : 1;
       let end = 0;
       for (let i = 0; i < n; i++) {
         const at = i * gap + Math.random() * 300, count = big && (i % 3 === 2 || i === n - 1) ? (i === n - 1 ? 4 : 2) : 1;
@@ -126,8 +126,8 @@ export function createFireworks(canvas, { lowEnd = false } = {}) {
         end = at;
       }
       if (big) {
-        canvas.classList.add("dim");
-        timers.push(setTimeout(() => canvas.classList.remove("dim"), end + 2600)); // the last sparks are fading
+        canvas.classList.add("fw-dim");
+        timers.push(setTimeout(() => canvas.classList.remove("fw-dim"), end + 2600)); // the last sparks are fading
       }
     },
     clear,

@@ -82,12 +82,9 @@ const lightbox = createLightbox($("lightbox"), photos, U, {
   onBeforeClose: id => album.showPhoto(id),
 });
 const confetti = createConfetti($("confetti"));
-// Fireworks in the sky whenever the birthday song starts: the big show (dimmed sky) right after the wish, the
-// small one on "Dallam újra".
+// Fireworks in the sky: the big show (dimmed sky) the moment the candles go out, the small one on "Dallam újra".
+// Not tied to the song: on a phone the song can still be downloading (or fail), and the show must never wait.
 const fireworks = createFireworks($("fireworks"), { lowEnd });
-let bigShow = false;
-const showFireworks = () => { if (!reduced) fireworks.show({ big: bigShow }); bigShow = false; };
-audio.onSongStart(showFireworks);
 
 // The unicorn's speech bubble sits just above its head (or above the candle flames when it would cover
 // them), with a curved tail pointing at the head. Re-placed on resize and whenever its text changes.
@@ -278,9 +275,9 @@ function celebrate() {
     cake.setCut(true);
     const f = cake.cakeScreen();
     if (!reduced) confetti.fire(f.cx, f.cy, lowEnd ? 0.6 : 1);
-    bigShow = true;
-    audio.playTune(); // the fireworks go up when the song actually starts (onSongStart)
-    if (!audio.isRunning()) { showSoundHint(); showFireworks(); } // no sound: fireworks anyway
+    if (!reduced) fireworks.show({ big: true });
+    audio.playTune();
+    if (!audio.isRunning()) showSoundHint();
     if (!reduced) later(3500, () => { clearInterval(heartTimer); heartTimer = setInterval(spawnHeart, 1300); });
   });
   later(wait + 3600, toPlay);
@@ -334,6 +331,7 @@ muteBtn.addEventListener("click", () => {
 replayBtn.addEventListener("click", () => {
   audio.ensureAudio();
   audio.playTune();
+  if (!reduced) fireworks.show();
 });
 
 function reset() {
@@ -344,7 +342,6 @@ function reset() {
   audio.stopTune();
   confetti.clear();
   fireworks.clear();
-  bigShow = false;
   cake.closeSliceNow();
   sliceLayer.hidden = true;
   sliceLayer.classList.remove("open");

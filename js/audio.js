@@ -1,13 +1,14 @@
 // Web Audio: the birthday song (a looping MP3) after the wish, plus small pop and squeak effects.
 // The song is decoded into a buffer and looped by Web Audio, so it can start when the candles go out
 // even without a tap at that moment (iOS only needs the earlier tap that unlocked the AudioContext).
-const SONG_URL = "assets/audio/birthday-swing.mp3";
+// ?v= dodges a 404 a phone may have cached before the song was deployed (assets are cached for a year).
+const SONG_URL = "assets/audio/birthday-swing.mp3?v=2";
 const SONG_VOL = 0.75, FX_VOL = 0.15;
 
 let ctx = null, fx = null, music = null, muted = false, silent = null, wasRunning = false;
 let song = null, songEnd = 0, songLoad = null, source = null, wantSong = false, onStart = null;
 
-// Called each time the song actually starts playing (the fireworks are launched from here).
+// Called each time the song actually starts playing.
 export function onSongStart(fn) { onStart = fn; }
 
 // Where the loop jumps back to the start. Song files often end with a cut-off fragment after the real
