@@ -9,7 +9,7 @@ export const CONTENT = {
   },
   // ...and the same bubble changes to this once the candles are out.
   happy: {
-    text: "Boldog szülinapot, kicsim!",
+    text: "Boldog szülinapot, Kicsim!",
   },
 
   ui: {
@@ -52,7 +52,7 @@ export const CONTENT = {
   candleNumber: "26",
 
   // The leather photo album next to the cake.
-  // title: gold lettering on the cover. dedication: optional line inside the cover, "" shows nothing.
+  // title: gold lettering on the cover. dedication: optional line on the page facing photo 1, "" shows nothing.
   album: {
     title: "26",
     dedication: "",

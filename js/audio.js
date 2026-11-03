@@ -5,7 +5,10 @@ const SONG_URL = "assets/audio/birthday-swing.mp3";
 const SONG_VOL = 0.75, FX_VOL = 0.15;
 
 let ctx = null, fx = null, music = null, muted = false, silent = null, wasRunning = false;
-let song = null, songEnd = 0, songLoad = null, source = null, wantSong = false;
+let song = null, songEnd = 0, songLoad = null, source = null, wantSong = false, onStart = null;
+
+// Called each time the song actually starts playing (the fireworks are launched from here).
+export function onSongStart(fn) { onStart = fn; }
 
 // Where the loop jumps back to the start. Song files often end with a cut-off fragment after the real
 // ending (this one starts a new run-through at 39.0 s and is chopped at 40.6 s), so loop at the quietest
@@ -83,6 +86,7 @@ function startSong() {
   source.loopEnd = songEnd;
   source.connect(music);
   source.start(ctx.currentTime + 0.05);
+  if (onStart) onStart();
 }
 
 // Start the song from the beginning, looping until stopTune(). If it is still loading, it starts once ready.

@@ -65,7 +65,7 @@ function normalMap(hf, w, h, strength) {
 }
 const field = (w, h, fn) => { const f = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) f[y * w + x] = fn(x, y); return f; };
 
-// Dark polished table wood: long, softly wavy grain running left to right, no plank joints.
+// Warm polished cherry wood with a rosy undertone (sits well with the coral and rose lights): long, softly wavy grain running left to right, no plank joints.
 // The tile covers about 120 x 30 cm of the table.
 export function darkWood() {
   const W = 1024, H = 256;
@@ -75,7 +75,7 @@ export function darkWood() {
     const fine = fbm(N3, x / 4, y / 1, 2, 256);
     const blot = fbm(N2, x / 128, y / 32, 3, 8);
     const m = 0.8 + 0.09 * ring + 0.07 * (fine - 0.5) + 0.18 * (blot - 0.5);
-    return [88 * m, 42 * m, 26 * m];
+    return [122 * m, 54 * m, 50 * m];
   });
   return toTex(c, { repeat: true });
 }

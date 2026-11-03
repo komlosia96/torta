@@ -21,16 +21,20 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   const label = id => ui.photoAria.replace("{n}", id);
   const btn = anchor.el; // real button placed over the album lying on the table
 
-  // Leaves: the cover (its inside shows the title and optional dedication), then one leaf per photo with a
-  // plain right page on the front and the photo on the back, so it lands on the left when turned.
-  // f = how many leaves are turned; with f >= 2 the left page shows photo f - 1.
-  const FIRST = 2, MAX = n + 1;
+  // Leaves: the cover, with photo 1 pasted on its inside, so opening the cover shows photo 1 right away;
+  // then one leaf per further photo, with a plain right page on the front and the photo on the back, so it
+  // lands on the left when turned. f = how many leaves are turned; the left page shows photo f (f >= 1).
+  // The optional dedication is written on the right page facing photo 1.
+  const FIRST = 1, MAX = n;
   const photoPage = (ph, p) => {
     const [pa, pb] = pastel(ph.id), rot = (((p * 37) % 7) - 3) * 0.6;
     return `<div class="page"><figure class="pg-print" style="--r:${rot.toFixed(1)}deg"><button type="button" class="pg-photo" data-id="${ph.id}" aria-label="${esc(label(ph.id))}"><span class="ph" style="--pa:${pa};--pb:${pb}"><b>${ph.id}</b></span><img alt="" draggable="false"></button><figcaption class="pg-cap">${esc(ph.caption)}</figcaption></figure><span class="pg-num l">${p}</span></div>`;
   };
-  let leavesHtml = `<div class="leaf cover"><div class="bf front leather"><div class="stitch"></div><div class="emboss">${esc(title)}</div></div><div class="bf back leather"><div class="endpaper left"><p class="inside-title">${esc(title)}</p>${dedication ? `<p class="dedic">${esc(dedication)}</p>` : ""}</div></div></div>`;
-  list.forEach((ph, i) => (leavesHtml += `<div class="leaf sheet"><div class="bf front"><div class="page"></div></div><div class="bf back">${photoPage(ph, i + 1)}</div></div>`));
+  let leavesHtml = `<div class="leaf cover"><div class="bf front leather"><div class="stitch"></div><div class="emboss">${esc(title)}</div></div><div class="bf back leather">${list[0] ? `<div class="cover-page">${photoPage(list[0], 1)}</div>` : ""}</div></div>`;
+  list.slice(1).forEach((ph, i) => {
+    const front = i === 0 && dedication ? `<div class="page dedication"><p class="dedic">${esc(dedication)}</p></div>` : `<div class="page"></div>`;
+    leavesHtml += `<div class="leaf sheet"><div class="bf front">${front}</div><div class="bf back">${photoPage(ph, i + 2)}</div></div>`;
+  });
 
   const view = document.createElement("div");
   view.className = "overlay album-view";
@@ -59,9 +63,10 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   }
 
   // Load the photos on the left page in view and its neighbours (full size, then thumb, then the placeholder stays).
+  // Photo p is on leaves[p - 1].
   function loadImages() {
-    for (let i = Math.max(1, f - 2); i <= Math.min(n, f + 1); i++) {
-      leaves[i].querySelectorAll("img:not([src])").forEach(img => {
+    for (let p = Math.max(1, f - 1); p <= Math.min(n, f + 2); p++) {
+      leaves[p - 1].querySelectorAll("img:not([src])").forEach(img => {
         img.onload = () => img.classList.add("ok");
         img.onerror = () => { if (!img.dataset.t) { img.dataset.t = "1"; img.src = thumbSrc(+img.parentNode.dataset.id); } else img.remove(); };
         img.src = fullSrc(+img.parentNode.dataset.id);
@@ -76,7 +81,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
       el.style.zIndex = i === turning ? 300 : flipped ? 10 + i : 200 - i;
     });
     book.classList.toggle("closed", f === 0);
-    count.textContent = f >= FIRST ? `${f - 1} / ${n}` : "";
+    count.textContent = f >= FIRST ? `${f} / ${n}` : "";
     btnPrev.disabled = f === 0;
     loadImages();
   }
@@ -123,9 +128,8 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     anchor.setVisible(false);
     const kf = reduced ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: flyTransform(), opacity: 0.7 }, { transform: "none", opacity: 1 }];
     stage.animate(kf, { duration: reduced ? 200 : 560, easing: "cubic-bezier(.3,.7,.2,1)" });
-    // Open the cover, then turn to the first photo.
-    turnTimers.push(setTimeout(() => { go(1); }, reduced ? 220 : 620));
-    turnTimers.push(setTimeout(() => { busy = false; go(FIRST); }, reduced ? 300 : 1250));
+    // Open the cover: photo 1 is on its inside.
+    turnTimers.push(setTimeout(() => { busy = false; go(FIRST); }, reduced ? 220 : 620));
     btnClose.focus({ preventScroll: true });
     document.addEventListener("keydown", onKey);
   }
@@ -205,15 +209,15 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     open, close,
     isOpen: () => isOpen,
     // Element to animate the zoomed photo from or back to (only the photo on the left page in view).
-    // Photo i (0-based) is on the back of leaf i + 1, which is the left page when f = i + 2.
+    // Photo i (0-based) is on the back of leaf i (leaf 0 is the cover), which is the left page when f = i + 1.
     getPhotoEl(id) {
       if (!isOpen) return btn;
       const i = list.findIndex(ph => ph.id === id);
-      return i >= 0 && f === i + 2 ? leaves[i + 1].querySelector(".pg-photo") : null;
+      return i >= 0 && f === i + 1 ? leaves[i].querySelector(".pg-photo") : null;
     },
     showPhoto(id) {
       const i = list.findIndex(ph => ph.id === id);
-      if (isOpen && i >= 0 && i + 2 !== f) jump(i + 2);
+      if (isOpen && i >= 0 && i + 1 !== f) jump(i + 1);
     },
   };
 }

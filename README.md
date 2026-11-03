@@ -9,7 +9,7 @@ Everything you write lives in `js/content.js`:
 - `sliceMessages`: exactly 3 short Hungarian messages (2 to 6 words each), one for each of the three front slices, left to right. Each one is piped in icing on top of the slice she pulls out of the cake.
 - `allSlicesText`: optional line shown after all 3 slices were opened. Empty string turns it off.
 - `photos`: exactly 26 entries, one per page of the leather photo album next to the cake, in page order. `caption` is optional short handwritten text under the photo.
-- `album.title`: gold lettering on the album cover (default "26"). `album.dedication`: optional line inside the cover, empty string shows nothing.
+- `album.title`: gold lettering on the album cover (default "26"). `album.dedication`: optional line on the page facing photo 1, empty string shows nothing. The album opens straight onto photo 1.
 - `candleNumber`: the wax number candles on the cake, default "26" (one candle per digit).
 
 If a count is wrong the page still renders and the browser console shows a warning.

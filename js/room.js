@@ -1,9 +1,10 @@
-// The warm backdrop beyond the table: a softly lit wall with out-of-focus golden lights (bokeh) spread
-// evenly over the whole backdrop, plus a "lights on" dimmer.
+// The twilight backdrop beyond the table: a navy to indigo wall with out-of-focus coral and rose lights (bokeh)
+// spread evenly over the whole backdrop, plus a "lights on" dimmer.
 // The discs are painted once on a canvas (and again on resize); a few of them gently twinkle.
 import { rng } from "./unicorn.js";
 
-const GOLD = ["255,224,156", "255,212,128", "255,236,186", "255,202,116"];
+// Palette: coral #FB5A3E, rose #DC375A, teal #163E50, navy #1C1C54, indigo #342D77 (lights use light tints of the warm two).
+const LIGHTS = ["255,128,98", "238,86,118", "255,168,140", "246,120,150"];
 const BACKDROP = 0.66; // fraction of the screen height the backdrop can show (the table covers the rest)
 
 export function buildRoom(sky, { reduced = false } = {}) {
@@ -33,13 +34,13 @@ export function buildRoom(sky, { reduced = false } = {}) {
       ctx.beginPath(); ctx.arc(x, y, d / 2, 0, 7); ctx.fill();
     };
     // Faint large glows far behind
-    for (let i = 0; i < 7; i++) disc(r() * w, r() * h * BACKDROP, u * (3 + r() * 3), GOLD[i % 4], 0.08 + r() * 0.08, true);
+    for (let i = 0; i < 7; i++) disc(r() * w, r() * h * BACKDROP, u * (3 + r() * 3), LIGHTS[i % 4], 0.08 + r() * 0.08, true);
     // Even coverage: one disc per cell of a staggered grid, jittered inside its cell, a few cells left empty.
     const spots = [], cell = u * 1.3, rows = Math.ceil((h * BACKDROP) / (cell * 0.87)) + 1, cols = Math.ceil(w / cell) + 1;
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
       if (r() < 0.18) continue;
       const x = (i + (j % 2) * 0.5 - 0.25 + r() * 0.5) * cell, y = (j * 0.87 - 0.2 + r() * 0.45) * cell;
-      spots.push([x, y, u * (0.6 + r() * 0.7), GOLD[Math.floor(r() * 4)], 0.26 + r() * 0.44]);
+      spots.push([x, y, u * (0.6 + r() * 0.7), LIGHTS[Math.floor(r() * 4)], 0.26 + r() * 0.44]);
     }
     spots.forEach(s => disc(...s));
     // A few discs twinkle on top (CSS opacity only).

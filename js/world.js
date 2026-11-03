@@ -2,7 +2,7 @@
 // cake, candles, album, plush placement, tap picking and pulling a slice out of the cake to read it (units: cm).
 import * as THREE from "./vendor/three.module.min.js";
 import * as TX from "./tex.js";
-import { buildCake, makeMaterials, R, Y0, TOP, radial } from "./cake.js";
+import { buildCake, makeMaterials, R, S, Y0, TOP, radial } from "./cake.js";
 import { buildCandles } from "./candles.js";
 import { createUnicorn } from "./unicorn.js";
 
@@ -11,9 +11,11 @@ const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, t) => { t = Math.min(1, Math.max(0, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
 // As in the reference photo: the closed album lies on the table left of the cake stand, the plush sits on the right.
-// Both sit close enough to the cake that the whole group (album, cake, plush with its tail) fits a phone screen.
-const PLUSH_AT = new THREE.Vector3(18, 0, 8), PLUSH_H = 16;
-const BOOK_AT = new THREE.Vector3(-17.5, 0, 5), BOOK_YAW = 0.32, BOOK = [14, 2.8, 19];
+// Both sit in front of the stand, to the left and right, so they overlap the cake's sides on screen: the
+// group stays narrow and the camera can come close, making the cake large on a phone. The plush may cover
+// a little of the cake's right side (author request); the album's back corner slides under the plate's rim.
+const PLUSH_AT = new THREE.Vector3(11, 0, 19.5), PLUSH_H = 18;
+const BOOK_AT = new THREE.Vector3(-13.5, 0, 17), BOOK_YAW = 0.32, BOOK = [15, 3, 20];
 // The table top ends this far behind the cake (turned a little); the warm bokeh backdrop shows beyond its edge.
 const TABLE_BACK = 52, TABLE_YAW = -0.04;
 const ELEV = 18 * DEG, FOV = 28;
@@ -21,9 +23,9 @@ const ELEV = 18 * DEG, FOV = 28;
 // Outside this file a slice is always addressed by that message index (0 to 2), never by its cake index.
 const FRONT = [2, 1, 0];
 
-// Small warm room used only to light reflections (image based lighting).
+// Small room in the scene's palette used only to light reflections (image based lighting).
 function envScene() {
-  const s = new THREE.Scene(), box = new THREE.Mesh(new THREE.BoxGeometry(12, 7, 12), new THREE.MeshBasicMaterial({ color: 0x5c4434, side: THREE.BackSide }));
+  const s = new THREE.Scene(), box = new THREE.Mesh(new THREE.BoxGeometry(12, 7, 12), new THREE.MeshBasicMaterial({ color: 0x3a3470, side: THREE.BackSide }));
   box.position.y = 2.5;
   s.add(box);
   const panel = (w, h, color, k, pos) => {
@@ -34,7 +36,7 @@ function envScene() {
   };
   panel(4, 3, 0xfff0dc, 6, [-5.8, 3.2, 3]);
   panel(4, 2, 0xffffff, 3, [0, 5.9, 0]);
-  panel(10, 3.2, 0xffc684, 2.2, [0, 1.9, -5.9]); // the glowing backdrop behind the table
+  panel(10, 3.2, 0xff8a78, 2.2, [0, 1.9, -5.9]); // the glowing coral backdrop behind the table
   panel(3, 1.5, 0xfff0e0, 2, [0, 2.5, 5.9]);
   return s;
 }
@@ -48,8 +50,9 @@ function decal(tex, size, y) {
 
 // White glazed ceramic cake stand: foot, short stem and a plate with a low rim; the cake sits at Y0.
 function standGeometry() {
+  // Radii were drawn for an 11 cm cake; S widens the stand with the cake (heights stay).
   const p = [[0, 0], [6, 0], [6.3, 0.22], [6.25, 0.6], [5.6, 1.05], [3.6, 1.5], [2.6, 2.2], [2.35, 3], [2.6, 3.7], [3.6, 4.35], [8, 4.85], [13.3, 5.2], [14.05, 5.42], [14.3, 5.72], [14.15, 6.02], [13.7, 6.1], [13.15, 5.92], [12, Y0 - 0.02], [0, Y0 - 0.02]];
-  return new THREE.LatheGeometry(p.map(([x, y]) => new THREE.Vector2(x, y)), 128);
+  return new THREE.LatheGeometry(p.map(([x, y]) => new THREE.Vector2(x * S, y)), 128);
 }
 
 export async function createWorld(o) {
@@ -105,14 +108,15 @@ export async function createWorld(o) {
   scene.add(hemi, key, key.target, rim);
   [hemi, key, rim].forEach(l => l.layers.enableAll());
 
-  // Dark polished table. Its back edge (a rounded nosing) runs behind the cake; beyond it is the backdrop.
+  // Warm cherry wood table. Its back edge (a rounded nosing) runs behind the cake; beyond it is the backdrop.
   const table = new THREE.Group();
   tex.wood.repeat.set(420 / 120, 300 / 30);
   const top = new THREE.Mesh(new THREE.PlaneGeometry(420, 300), new THREE.MeshPhysicalMaterial({ map: tex.wood, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.25 }));
+  top.material.userData.env = 0.6; // softer reflections so the indigo room does not grey the wood
   top.rotation.x = -Math.PI / 2;
   top.position.z = -TABLE_BACK + 150;
   top.receiveShadow = true;
-  const nose = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 420, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0x4a2617, roughness: 0.38, clearcoat: 0.6, clearcoatRoughness: 0.2 }));
+  const nose = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 420, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0x5a2418, roughness: 0.38, clearcoat: 0.6, clearcoatRoughness: 0.2 }));
   nose.rotation.z = Math.PI / 2;
   nose.position.set(0, -1.6, -TABLE_BACK);
   table.add(top, nose);
@@ -122,7 +126,7 @@ export async function createWorld(o) {
   // Cake stand with soft contact shadows under its foot and around the base of the cake.
   const stand = new THREE.Mesh(standGeometry(), new THREE.MeshPhysicalMaterial({ color: 0xf4f1ec, roughness: 0.26, clearcoat: 0.8, clearcoatRoughness: 0.15 }));
   stand.castShadow = stand.receiveShadow = true;
-  scene.add(stand, decal(tex.ring, 28, Y0 - 0.01), decal(tex.shadow, 18, 0.03));
+  scene.add(stand, decal(tex.ring, 28 * S, Y0 - 0.01), decal(tex.shadow, 18 * S, 0.03));
 
   // Cake and number candles
   const M = makeMaterials(THREE, tex), cake = buildCake(THREE, M), C = buildCandles(o.number, tex);
@@ -194,7 +198,7 @@ export async function createWorld(o) {
 
   // Dark veil drawn inside WebGL while a slice is being read
   const scrimScene = new THREE.Scene(), scrimCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const scrim = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ color: 0x170c07, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
+  const scrim = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ color: 0x0c0c28, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
   scrimScene.add(scrim);
   let scrimA = 0;
 
@@ -214,18 +218,19 @@ export async function createWorld(o) {
   const cakePts = [], sidePts = [];
   for (let i = 0; i < 32; i++) {
     const a = (i / 32) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-    cakePts.push(new THREE.Vector3(14.3 * c, 5.9, 14.3 * s), new THREE.Vector3(6.3 * c, 0, 6.3 * s));
+    cakePts.push(new THREE.Vector3(14.3 * S * c, 5.9, 14.3 * S * s), new THREE.Vector3(6.3 * S * c, 0, 6.3 * S * s));
   }
   C.candles.forEach(c => cakePts.push(c.group.localToWorld(c.base.clone().add(new THREE.Vector3(0, 2.6, 0)))));
   { const b = new THREE.Box3().setFromObject(book); for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) sidePts.push(new THREE.Vector3(x, y, z)); }
-  // The plush image is mirrored: about 7 cm left of its seat to the tail tip about 12.5 cm right of it.
-  sidePts.push(PLUSH_AT.clone().add(new THREE.Vector3(-7.5, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(13, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0, PLUSH_H + 1, 0)));
+  // The plush image is mirrored: from about 0.45 x its height left of the seat to the tail tip about 0.8 x right.
+  sidePts.push(PLUSH_AT.clone().add(new THREE.Vector3(-0.45 * PLUSH_H, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0.8 * PLUSH_H, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0, PLUSH_H + 1, 0)));
 
   function fit() {
     const w = innerWidth, h = innerHeight, portrait = h >= w;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // Screen fractions from the top: the stand's foot rests at `bottom`, nothing of the cake rises above `top`.
+    // Screen fractions from the top: the lowest point of the group (the album's front corner) rests at `bottom`,
+    // nothing rises above `top`.
     const topLim = portrait ? 0.26 : 0.3, bottom = portrait ? 0.8 : 0.83;
     const target = new THREE.Vector3(0, 10, 2), dir = new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV));
     let d = 200, ext = null;
@@ -237,15 +242,16 @@ export async function createWorld(o) {
       camera.updateProjectionMatrix();
       ext = { x0: 9, x1: -9, y0: 9, y1: -9 };
       for (const p of cakePts) { v3.copy(p).project(camera); ext.y0 = Math.min(ext.y0, v3.y); ext.y1 = Math.max(ext.y1, v3.y); ext.x0 = Math.min(ext.x0, v3.x); ext.x1 = Math.max(ext.x1, v3.x); }
-      for (const p of sidePts) { v3.copy(p).project(camera); ext.x0 = Math.min(ext.x0, v3.x); ext.x1 = Math.max(ext.x1, v3.x); }
+      // Album and plush stand in front of the cake, so they also set the lowest point on screen.
+      for (const p of sidePts) { v3.copy(p).project(camera); ext.x0 = Math.min(ext.x0, v3.x); ext.x1 = Math.max(ext.x1, v3.x); ext.y0 = Math.min(ext.y0, v3.y); ext.y1 = Math.max(ext.y1, v3.y); }
     };
     // The whole group (album, cake, plush) fits the width with a small margin, in portrait and landscape.
     for (let i = 0; i < 8; i++) {
       measure();
-      d *= Math.max((ext.x1 - ext.x0) / (portrait ? 1.9 : 1.84), (ext.y1 - ext.y0) / (2 * (bottom - topLim)));
+      d *= Math.max((ext.x1 - ext.x0) / (portrait ? 1.94 : 1.84), (ext.y1 - ext.y0) / (2 * (bottom - topLim)));
     }
     measure();
-    // Lens shift (no change of perspective): the group is centred across, the stand's foot lands on `bottom`.
+    // Lens shift (no change of perspective): the group is centred across, its lowest point lands on `bottom`.
     camera.setViewOffset(w, h, ((ext.x0 + ext.x1) / 2) * (w / 2), ((1 - 2 * bottom - ext.y0) * h) / 2, w, h);
     camera.updateProjectionMatrix();
     placeOverlays();
@@ -309,14 +315,15 @@ export async function createWorld(o) {
   }
   function invalidate() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); } }
 
-  // ---- room light: warm and candle-lit before the wish, brighter after ----
+  // ---- room light: dim and candle-lit before the wish, bright party light after ----
   let light = 0;
   function applyLight(v) {
     light = v;
-    hemi.intensity = lerp(0.45, 0.65, v);
-    key.intensity = lerp(1.8, 2.5, v);
-    rim.intensity = lerp(0.35, 0.6, v);
-    scene.traverse(m => { if (m.material) [].concat(m.material).forEach(mt => { if ("envMapIntensity" in mt) mt.envMapIntensity = lerp(0.7, 1, v); }); });
+    hemi.intensity = lerp(0.45, 0.85, v);
+    key.intensity = lerp(1.8, 2.7, v);
+    rim.intensity = lerp(0.35, 0.75, v);
+    renderer.toneMappingExposure = lerp(1.12, 1.24, v);
+    scene.traverse(m => { if (m.material) [].concat(m.material).forEach(mt => { if ("envMapIntensity" in mt) mt.envMapIntensity = lerp(0.7, 1, v) * (mt.userData.env ?? 1); }); });
   }
   applyLight(0);
 

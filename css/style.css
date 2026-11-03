@@ -17,21 +17,28 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
-body{font-family:var(--ui);color:var(--ink);background:#7A615A;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{font-family:var(--ui);color:var(--ink);background:#1C1C54;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 button{font:inherit;color:inherit;touch-action:manipulation}
 :focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 .glass{background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(12px) saturate(1.2);backdrop-filter:blur(12px) saturate(1.2);box-shadow:var(--shadow)}
 
-/* Warm backdrop beyond the table with out-of-focus golden lights */
-.sky{position:fixed;inset:0;z-index:0;overflow:hidden;background:radial-gradient(60% 42% at 48% 30%,rgba(242,196,128,.8),rgba(242,196,128,0) 72%),radial-gradient(45% 35% at 88% 52%,rgba(130,60,40,.38),rgba(130,60,40,0) 70%),linear-gradient(180deg,#6F4F3A 0%,#A27A56 34%,#97714F 55%,#5E4232 100%)}
-.sky::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 95% at 50% 40%,transparent 55%,rgba(30,16,10,.5) 100%);pointer-events:none}
-.bokeh,.twinkle{position:absolute;inset:0;width:100%;height:100%}
-.dim{position:absolute;inset:0;background:rgba(18,9,5,.22);transition:opacity 2s ease}
+/* Twilight backdrop beyond the table with out-of-focus coral and rose lights; after the wish a lighter party sky fades in */
+.sky{position:fixed;inset:0;z-index:0;overflow:hidden;background:radial-gradient(60% 40% at 48% 34%,rgba(251,90,62,.5),rgba(251,90,62,0) 72%),radial-gradient(48% 36% at 86% 50%,rgba(220,55,90,.45),rgba(220,55,90,0) 70%),radial-gradient(42% 32% at 10% 22%,rgba(220,55,90,.28),rgba(220,55,90,0) 70%),linear-gradient(180deg,#1C1C54 0%,#342D77 36%,#4A2F72 56%,#1C1C54 100%)}
+.sky::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity 2.2s ease;background:radial-gradient(64% 44% at 48% 34%,rgba(255,122,92,.62),rgba(255,122,92,0) 72%),radial-gradient(50% 38% at 86% 50%,rgba(240,84,124,.55),rgba(240,84,124,0) 70%),radial-gradient(46% 34% at 10% 22%,rgba(240,84,124,.42),rgba(240,84,124,0) 70%),linear-gradient(180deg,#3A3486 0%,#5E4FB0 36%,#8A4C9E 58%,#3A3486 100%)}
+.sky::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 95% at 50% 40%,transparent 55%,rgba(14,14,44,.55) 100%);pointer-events:none;transition:opacity 2.2s ease}
+.lights-on .sky::before{opacity:1}
+.lights-on .sky::after{opacity:.45}
+.bokeh,.twinkle{position:absolute;inset:0;width:100%;height:100%;transition:filter 2.2s ease}
+.lights-on .bokeh,.lights-on .twinkle{filter:brightness(1.4) saturate(1.15)}
+.dim{position:absolute;inset:0;background:rgba(12,12,40,.26);transition:opacity 2s ease}
 .lights-on .dim{opacity:0}
 .bk{position:absolute;border-radius:50%;opacity:0;background:radial-gradient(circle,rgba(var(--c),.45) 0%,rgba(var(--c),.5) 70%,rgba(var(--c),.6) 90%,rgba(var(--c),0) 100%);animation:bk var(--t) ease-in-out var(--dl) infinite alternate}
 @keyframes bk{to{opacity:.7}}
+/* fireworks in the sky: above the backdrop, behind the 3D scene (the table and cake cover them) */
+.fireworks{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
 /* the table front falls off into shadow, like the photo */
-.stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 64%,rgba(18,8,3,.34) 100%)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 64%,rgba(10,14,36,.38) 100%);transition:opacity 2.2s ease}
+.lights-on .stage::after{opacity:.4}
 
 /* App column */
 #app{position:relative;margin:0 auto;width:100%;max-width:430px;height:100vh;height:100dvh}
@@ -138,9 +145,10 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 .stitch{position:absolute;inset:6.5%;border:1.5px dashed rgba(236,200,150,.8);border-radius:7px;box-shadow:0 1px 0 rgba(20,8,2,.35)}
 .emboss{position:absolute;left:0;right:0;top:38%;text-align:center;font:700 4.2em/1 Georgia,"Times New Roman",serif;background:linear-gradient(180deg,#FBE7B5,#D2A456 60%,#A97A35);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1.5px 0 rgba(30,12,4,.6))}
 .endpaper{position:absolute;top:3%;bottom:3%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6em;padding:8%;background:#F4ECDD var(--paper);background-blend-mode:multiply;text-align:center}
-.endpaper.left{left:4%;right:0;box-shadow:inset -14px 0 18px -10px rgba(60,40,20,.35)}
+/* photo 1, pasted inside the cover: inset like the other pages, flush with the spine */
+.cover-page{position:absolute;top:1.8%;bottom:1.8%;left:2.8%;right:0}
+.page.dedication{flex-direction:column;padding:12%;text-align:center}
 .endpaper.right{left:0;right:4%;box-shadow:inset 14px 0 18px -10px rgba(60,40,20,.35)}
-.inside-title{margin:0;font:700 3.4em/1 var(--hand);color:#9C7656}
 .dedic{margin:0;font:700 1.35em/1.25 var(--hand);color:var(--ink)}
 .page{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:6%;background:#FBF6EC var(--paper);background-blend-mode:multiply}
 .front .page{box-shadow:inset 16px 0 20px -12px rgba(60,40,20,.38)}
@@ -185,7 +193,7 @@ button{font:inherit;color:inherit;touch-action:manipulation}
 
 /* Overlays */
 .overlay{position:fixed;inset:0;touch-action:none}
-.scrim{position:absolute;inset:0;background:rgba(40,24,20,.48);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .3s ease}
+.scrim{position:absolute;inset:0;background:rgba(20,20,60,.5);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .3s ease}
 .overlay.open .scrim{opacity:1}
 .close-btn{min-height:44px;padding:0 20px;border:1px solid rgba(255,255,255,.8);border-radius:999px;background:rgba(255,250,244,.92);box-shadow:var(--shadow);font-weight:700;font-size:15px;cursor:pointer}
 .slice-layer{z-index:8}

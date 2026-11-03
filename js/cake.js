@@ -3,7 +3,8 @@
 import * as THREE from "./vendor/three.module.min.js";
 import { rng } from "./unicorn.js";
 
-export const R = 11, H = 10.4, Y0 = 5.84, TOP = Y0 + H;
+export const R = 12.5, H = 15, Y0 = 5.84, TOP = Y0 + H; // a tall, wide layer cake, so it fills more of a phone screen
+export const S = R / 11; // the stand and the strawberry layout were designed for R = 11 and scale with the cake
 const E = 0.9, SLICES = 8; // E: radius of the softly rounded top edge
 const D = Math.PI / 180;
 export const sliceStart = k => (22.5 + 45 * k) * D; // slice k covers [start, start + 45 deg]
@@ -168,7 +169,7 @@ function buildSlice(k, M) {
   add(baseBorder(a0, a1), M.piping);
   // Small gold heart on the bare cream near the rim, shown once the slice was read.
   const heart = add(heartGeometry(), M.gold);
-  heart.position.copy(radial(mid).multiplyScalar(9.3)).setY(TOP + 0.02);
+  heart.position.copy(radial(mid).multiplyScalar(R - 1.7)).setY(TOP + 0.02);
   heart.rotation.y = -mid - Math.PI / 2;
   heart.visible = false;
   const pivot = radial(mid).multiplyScalar(R * 0.6).setY((Y0 + TOP) / 2);
@@ -203,7 +204,8 @@ const MOUND = [
 ];
 function buildMound(M, parts) {
   const r = rng(77), up = new THREE.Vector3(0, 1, 0), box = new THREE.Box3(), c = new THREE.Vector3();
-  return MOUND.map(([x, z, L, dx, dz, lean, lift], i) => {
+  return MOUND.map(([x0, z0, L, dx, dz, lean, lift], i) => {
+    const x = x0 * S, z = z0 * S;
     const b = new THREE.Group(), dir = new THREE.Vector3(dx, 0, dz).normalize(), tilt = lean * D;
     b.add(new THREE.Mesh(parts.body, M.berry), new THREE.Mesh(parts.calyx[i % 3], M.leaf), new THREE.Mesh(parts.stem, M.leaf));
     b.scale.set(L * (0.95 + r() * 0.1), L, L * (0.95 + r() * 0.1));

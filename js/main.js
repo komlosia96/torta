@@ -7,6 +7,7 @@ import { createLightbox } from "./lightbox.js";
 import { startBlow, stopBlow } from "./blow.js";
 import * as audio from "./audio.js";
 import { createConfetti } from "./confetti.js";
+import { createFireworks } from "./fireworks.js";
 
 const C = CONTENT, U = C.ui;
 const $ = id => document.getElementById(id);
@@ -80,6 +81,9 @@ const lightbox = createLightbox($("lightbox"), photos, U, {
   onBeforeClose: id => album.showPhoto(id),
 });
 const confetti = createConfetti($("confetti"));
+// Small fireworks in the sky whenever the birthday song starts (after the wish, and on "Dallam újra").
+const fireworks = createFireworks($("fireworks"), { lowEnd });
+audio.onSongStart(() => { if (!reduced) fireworks.show(); });
 
 // The unicorn's speech bubble sits just above its head (or above the candle flames when it would cover
 // them), with a curved tail pointing at the head. Re-placed on resize and whenever its text changes.
@@ -94,9 +98,11 @@ function placeSay() {
   const top = Math.max(56, bottom - h); // clear of the mute and replay buttons
   say.style.left = left + "px";
   say.style.top = top + "px";
-  const by = top + h - 1, bx = Math.min(right - 28, Math.max(left + 28, head.x - head.r * 1.3));
-  const tx = head.x - head.r * 0.75, ty = head.y - head.r * 0.95, mx = (bx + tx) / 2, my = (by + ty) / 2;
-  sayTail.firstChild.setAttribute("d", `M${bx - 13} ${by}Q${mx - 4} ${my} ${tx} ${ty}Q${mx + 8} ${my} ${bx + 13} ${by}Z`);
+  // The tail leaves the bubble on the right, curves down past the right side of his head (away from the cake)
+  // and ends just outside his cheek, level with the mouth, so it covers neither the cake nor his face.
+  const by = top + h - 1, bx = Math.min(right - 26, Math.max(left + 26, head.x + head.r * 1.5));
+  const tx = head.x + head.r * 0.98, ty = head.y + head.r * 0.72, cx = Math.max(bx, head.x + head.r * 2), cy = (by + ty) / 2;
+  sayTail.firstChild.setAttribute("d", `M${bx - 12} ${by}Q${cx - 6} ${cy} ${tx} ${ty}Q${cx + 8} ${cy} ${bx + 12} ${by}Z`);
   say.classList.add("on");
   sayTail.classList.add("on");
 }
@@ -250,8 +256,8 @@ function celebrate() {
     cake.setCut(true);
     const f = cake.cakeScreen();
     if (!reduced) confetti.fire(f.cx, f.cy, lowEnd ? 0.6 : 1);
-    audio.playTune();
-    if (!audio.isRunning()) showSoundHint();
+    audio.playTune(); // the fireworks go up when the song actually starts (onSongStart)
+    if (!audio.isRunning()) { showSoundHint(); if (!reduced) fireworks.show(); } // no sound: fireworks anyway
     if (!reduced) later(3500, () => { clearInterval(heartTimer); heartTimer = setInterval(spawnHeart, 1300); });
   });
   later(wait + 3600, toPlay);
@@ -313,6 +319,7 @@ function reset() {
   stopBlow();
   audio.stopTune();
   confetti.clear();
+  fireworks.clear();
   cake.closeSliceNow();
   sliceLayer.hidden = true;
   sliceLayer.classList.remove("open");
