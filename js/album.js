@@ -6,8 +6,11 @@
 export const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 const pad = n => String(n).padStart(2, "0");
-export const thumbSrc = id => `assets/photos/thumb/${pad(id)}.jpg`;
-export const fullSrc = id => `assets/photos/full/${pad(id)}.jpg`;
+// Bump PHOTO_V whenever the photos change: a phone may still hold an old copy (or the "not found" from before
+// the photos existed) under the old address.
+const PHOTO_V = 2;
+export const thumbSrc = id => `assets/photos/thumb/${pad(id)}.jpg?v=${PHOTO_V}`;
+export const fullSrc = id => `assets/photos/full/${pad(id)}.jpg?v=${PHOTO_V}`;
 const PASTELS = [["#F3D9D3", "#E6D3E8"], ["#D9E8DF", "#DCE4EE"], ["#F4E6C8", "#EED8C6"], ["#E4DAEE", "#D9E2EC"], ["#EFD9C9", "#F1D6DA"], ["#DCE6EC", "#DCEAE0"]];
 export const pastel = id => PASTELS[Math.abs(id - 1) % PASTELS.length];
 const svgUrl = (vb, body) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${body}</svg>`);
