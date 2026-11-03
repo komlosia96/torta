@@ -20,7 +20,7 @@ if (lowEnd) root.classList.add("lowend");
 // Content validation: warn, but always render.
 const messages = Array.isArray(C.sliceMessages) ? C.sliceMessages : [];
 const photos = Array.isArray(C.photos) ? C.photos : [];
-if (messages.length !== 8) console.warn(`[torta] content.js: sliceMessages should have exactly 8 items, found ${messages.length}.`);
+if (messages.length !== 3) console.warn(`[torta] content.js: sliceMessages should have exactly 3 items (the three front slices), found ${messages.length}.`);
 if (photos.length !== 26) console.warn(`[torta] content.js: photos should have exactly 26 items, found ${photos.length}.`);
 const ids = photos.map(p => p.id);
 if (new Set(ids).size !== ids.length) console.warn("[torta] content.js: photo ids must be unique, found duplicates.");
@@ -37,6 +37,9 @@ root.lang = C.lang || "hu";
 sayText.textContent = C.intro.text;
 blowBtn.textContent = U.blowButton;
 replayBtn.textContent = U.replayTune;
+const resetBtn = $("resetBtn");
+resetBtn.setAttribute("aria-label", U.restart);
+resetBtn.title = U.restart;
 muteBtn.setAttribute("aria-label", U.soundOff);
 muteBtn.title = U.soundOff;
 soundHint.textContent = U.soundHint;
@@ -270,7 +273,7 @@ function onSliceTap(k) {
 
 function onSliceClosed(k) {
   visited.add(k);
-  if (visited.size < 8 || allDone || !C.allSlicesText) return;
+  if (visited.size < messages.length || allDone || !C.allSlicesText) return;
   allDone = true;
   allText.textContent = C.allSlicesText;
   allText.hidden = false;
@@ -320,7 +323,7 @@ function reset() {
   cake.setBlowLevel(0);
   cake.setCandlesTappable(true);
   cake.setLocked(true);
-  cake.unicorn.setMood("calm");
+  cake.unicorn.setMood("sad");
   cake.resetVisited();
   visited.clear();
   allDone = false;
@@ -335,6 +338,9 @@ function reset() {
   replayBtn.hidden = true;
   setWishUI();
 }
+
+// Corner button: start over (candles relit, cake whole again, the unicorn asks his question again).
+resetBtn.addEventListener("click", reset);
 
 // Dev shortcuts, only with ?dev=1
 if (DEV) {

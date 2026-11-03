@@ -6,8 +6,8 @@ Static single page site with a photoreal 3D scene (WebGL). No build step; the on
 
 Everything you write lives in `js/content.js`:
 
-- `sliceMessages`: exactly 8 short Hungarian messages (2 to 6 words each). Each one is piped in icing on top of a slice she pulls out of the cake.
-- `allSlicesText`: optional line shown after all 8 slices were opened. Empty string turns it off.
+- `sliceMessages`: exactly 3 short Hungarian messages (2 to 6 words each), one for each of the three front slices, left to right. Each one is piped in icing on top of the slice she pulls out of the cake.
+- `allSlicesText`: optional line shown after all 3 slices were opened. Empty string turns it off.
 - `photos`: exactly 26 entries, one per page of the leather photo album next to the cake, in page order. `caption` is optional short handwritten text under the photo.
 - `album.title`: gold lettering on the album cover (default "26"). `album.dedication`: optional line inside the cover, empty string shows nothing.
 - `candleNumber`: the wax number candles on the cake, default "26" (one candle per digit).
@@ -74,5 +74,6 @@ Then open the production URL on a real phone over mobile data (not Wi-Fi) and go
 - Privacy: `noindex` meta tag, `X-Robots-Tag` header, `robots.txt` disallow, `no-referrer`. No analytics, cookies or third party requests.
 - If the microphone is blocked (for example inside WhatsApp, Messenger or Instagram), she can tap each candle instead. The page never gets stuck.
 - The 3D scene needs WebGL (every current iPhone and Android browser has it). If it is missing, a short message asks her to open the page in Safari or Chrome.
-- All textures (wood, cream, sponge, strawberries, leather) and the bokeh backdrop are generated in the browser at load time, so there are no image files besides your photos. The candle digits are traced from the bundled Quicksand font.
+- All textures (wood, cream, sponge, strawberries, leather) and the bokeh backdrop are generated in the browser at load time, so there are no image files besides your photos (the only other media file is the song). The candle digits are traced from the bundled Quicksand font.
+- The song that plays (on a loop) after the candles go out is `assets/audio/birthday-swing.mp3`. To use a different song, replace that file. Because `/assets/` files are cached for a year, give the new file a new name and update `SONG_URL` in `js/audio.js` if the site has already been opened on a phone.
 - On iPhone the hardware silent switch can mute Web Audio. The page tries a workaround and shows "Kapcsold be a hangot" if the sound looks blocked.

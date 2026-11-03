@@ -78,7 +78,6 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     book.classList.toggle("closed", f === 0);
     count.textContent = f >= FIRST ? `${f - 1} / ${n}` : "";
     btnPrev.disabled = f === 0;
-    btnNext.disabled = f === MAX;
     loadImages();
   }
 
@@ -92,6 +91,9 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     render(turning);
     turnTimers.push(setTimeout(() => { el.classList.remove("turning"); render(); }, reduced ? 50 : 880));
   }
+
+  // Forward from the last photo closes the book and puts it back on the table.
+  const forward = () => (f >= MAX ? close() : go(f + 1));
 
   // Jump without animation (used when the zoomed photo viewer closes on another photo).
   function jump(nf) {
@@ -155,7 +157,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   function onKey(e) {
     if (isBlocked && isBlocked()) return;
     if (e.key === "Escape") { e.preventDefault(); close(); }
-    else if (e.key === "ArrowRight") go(f + 1);
+    else if (e.key === "ArrowRight") forward();
     else if (e.key === "ArrowLeft") go(f - 1);
     else if (e.key === "Tab") {
       e.preventDefault();
@@ -167,7 +169,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   btn.addEventListener("click", open);
   btnClose.addEventListener("click", close);
   btnPrev.addEventListener("click", () => go(f - 1));
-  btnNext.addEventListener("click", () => go(f + 1));
+  btnNext.addEventListener("click", forward);
 
   // Touch and mouse anywhere in the viewer: swipe left = turn the page forward (next photo), swipe right = back.
   // A tap on the photo zooms it, on the left edge of the screen turns back, on the right side turns forward,
@@ -183,14 +185,14 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     if (!down || busy) return;
     down = false;
     const dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.2) return go(dx < 0 ? f + 1 : f - 1);
+    if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.2) return dx < 0 ? forward() : go(f - 1);
     if (Math.hypot(dx, dy) > 10) return;
     const r = stage.getBoundingClientRect();
     if (e.clientX < r.left || e.clientY < r.top || e.clientY > r.bottom) return close();
     // With pointer capture the event target is the viewer, so find what is under the finger.
     const hit = document.elementFromPoint(e.clientX, e.clientY), photo = hit && hit.closest(".pg-photo");
     if (photo && f >= FIRST) return onPhoto(+photo.dataset.id);
-    go(e.clientX < innerWidth * 0.3 ? f - 1 : f + 1);
+    if (e.clientX < innerWidth * 0.3) go(f - 1); else forward();
   });
   view.addEventListener("pointercancel", () => { down = false; });
   stage.addEventListener("click", e => { // keyboard activation of a photo (pointer taps are handled above)

@@ -1,16 +1,26 @@
-// Web Audio only: music-box birthday tune, pop and squeak. No audio files.
-const MASTER = 0.15;
-const BPM = 84;
-const F = { G4: 392.0, A4: 440.0, B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99 };
-// "Happy Birthday" (traditional melody, public domain): pitch and beats.
-const TUNE = [
-  ["G4", 0.75], ["G4", 0.25], ["A4", 1], ["G4", 1], ["C5", 1], ["B4", 2],
-  ["G4", 0.75], ["G4", 0.25], ["A4", 1], ["G4", 1], ["D5", 1], ["C5", 2],
-  ["G4", 0.75], ["G4", 0.25], ["G5", 1], ["E5", 1], ["C5", 1], ["B4", 1], ["A4", 1],
-  ["F5", 0.75], ["F5", 0.25], ["E5", 1], ["C5", 1], ["D5", 1], ["C5", 2],
-];
+// Web Audio: the birthday song (a looping MP3) after the wish, plus small pop and squeak effects.
+// The song is decoded into a buffer and looped by Web Audio, so it can start when the candles go out
+// even without a tap at that moment (iOS only needs the earlier tap that unlocked the AudioContext).
+const SONG_URL = "assets/audio/birthday-swing.mp3";
+const SONG_VOL = 0.75, FX_VOL = 0.15;
 
-let ctx = null, master = null, bus = null, muted = false, voices = [], silent = null, wasRunning = false;
+let ctx = null, fx = null, music = null, muted = false, silent = null, wasRunning = false;
+let song = null, songEnd = 0, songLoad = null, source = null, wantSong = false;
+
+// Where the loop jumps back to the start. Song files often end with a cut-off fragment after the real
+// ending (this one starts a new run-through at 39.0 s and is chopped at 40.6 s), so loop at the quietest
+// moment of the last few seconds, after the final note has died away, when there is a clear one.
+function findLoopEnd(buf) {
+  const sr = buf.sampleRate, win = Math.round(sr * 0.05), chans = [...Array(buf.numberOfChannels).keys()].map(c => buf.getChannelData(c));
+  const from = Math.max(0, buf.length - sr * 6), rms = at => {
+    let s = 0;
+    for (const d of chans) for (let i = at; i < at + win; i++) s += d[i] * d[i];
+    return Math.sqrt(s / (win * chans.length));
+  };
+  let best = buf.length, bestRms = 0.02; // only accept a really quiet spot
+  for (let at = from; at + win <= buf.length - win; at += win) { const v = rms(at); if (v < bestRms) { bestRms = v; best = at + win; } }
+  return best / sr;
+}
 
 function silentWavUrl() {
   const sr = 8000, n = 4000, b = new ArrayBuffer(44 + n), v = new DataView(b);
@@ -23,27 +33,32 @@ function silentWavUrl() {
   return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
 }
 
+// Fetch and decode the song once, in the background (started by the first ensureAudio()).
+function loadSong() {
+  if (!songLoad) {
+    songLoad = fetch(SONG_URL)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(data => new Promise((ok, fail) => { const p = ctx.decodeAudioData(data, ok, fail); if (p && p.catch) p.catch(fail); }))
+      .then(buf => { song = buf; songEnd = findLoopEnd(buf); if (wantSong) startSong(); })
+      .catch(e => { console.warn("[torta] birthday song could not be loaded:", e); songLoad = null; });
+  }
+  return songLoad;
+}
+
 // Must be called inside a user gesture (iOS unlocks audio only there).
 export function ensureAudio() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     try { ctx = new AC(); } catch (e) { return null; }
-    master = ctx.createGain();
-    master.gain.value = muted ? 0 : MASTER;
-    master.connect(ctx.destination);
-    bus = ctx.createGain();
-    const delay = ctx.createDelay(1), fb = ctx.createGain(), wet = ctx.createGain();
-    delay.delayTime.value = 0.25;
-    fb.gain.value = 0.22;
-    wet.gain.value = 0.3;
-    bus.connect(master);
-    bus.connect(delay);
-    delay.connect(fb);
-    fb.connect(delay);
-    delay.connect(wet);
-    wet.connect(master);
-    // Best-effort iOS hack: a looping silent <audio> moves the audio session to playback mode.
+    fx = ctx.createGain();
+    fx.gain.value = muted ? 0 : FX_VOL;
+    fx.connect(ctx.destination);
+    music = ctx.createGain();
+    music.gain.value = muted ? 0 : SONG_VOL;
+    music.connect(ctx.destination);
+    // Best-effort iOS hack: a looping silent <audio> moves the audio session to playback mode,
+    // so the hardware silent switch does not mute the page.
     try {
       silent = new Audio(silentWavUrl());
       silent.loop = true;
@@ -53,42 +68,36 @@ export function ensureAudio() {
     } catch (e) { silent = null; }
   }
   if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  loadSong();
   return ctx;
 }
 
 export const isRunning = () => !!ctx && ctx.state === "running";
 
-function note(f, t) {
-  const g = ctx.createGain(), g2 = ctx.createGain(), o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.9, t + 0.005);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
-  g2.gain.value = 0.126; // octave partial, about -18 dB
-  o1.type = "triangle";
-  o1.frequency.value = f;
-  o2.type = "sine";
-  o2.frequency.value = f * 2;
-  o1.connect(g);
-  o2.connect(g2);
-  g2.connect(g);
-  g.connect(bus);
-  o1.start(t); o2.start(t);
-  o1.stop(t + 0.9); o2.stop(t + 0.9);
-  o1.onended = () => { g.disconnect(); g2.disconnect(); voices = voices.filter(v => v !== o1 && v !== o2); };
-  voices.push(o1, o2);
+function startSong() {
+  if (source) { try { source.stop(); } catch (e) { /* already stopped */ } source.disconnect(); }
+  source = ctx.createBufferSource();
+  source.buffer = song;
+  source.loop = true;
+  source.loopStart = 0;
+  source.loopEnd = songEnd;
+  source.connect(music);
+  source.start(ctx.currentTime + 0.05);
+}
+
+// Start the song from the beginning, looping until stopTune(). If it is still loading, it starts once ready.
+export function playTune() {
+  if (!ctx) return;
+  wantSong = true;
+  if (song) startSong(); else loadSong();
 }
 
 export function stopTune() {
-  voices.forEach(o => { try { o.stop(); } catch (e) { /* already stopped */ } });
-  voices = [];
-}
-
-export function playTune() {
-  if (!ctx) return;
-  stopTune();
-  const beat = 60 / BPM;
-  let t = ctx.currentTime + 0.08;
-  for (const [p, b] of TUNE) { note(F[p], t); t += b * beat; }
+  wantSong = false;
+  if (!source) return;
+  try { source.stop(); } catch (e) { /* already stopped */ }
+  source.disconnect();
+  source = null;
 }
 
 function blip(type, f0, f1, dur, vol) {
@@ -100,7 +109,7 @@ function blip(type, f0, f1, dur, vol) {
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g);
-  g.connect(master);
+  g.connect(fx);
   o.start(t);
   o.stop(t + dur + 0.02);
   o.onended = () => g.disconnect();
@@ -108,20 +117,23 @@ function blip(type, f0, f1, dur, vol) {
 export const pop = () => blip("triangle", 720, 180, 0.1, 0.55);
 export const squeak = () => blip("sine", 950, 1700, 0.14, 0.4);
 
+// Mute fades rather than cutting hard; the song keeps its place underneath.
 export function setMuted(m) {
   muted = m;
   if (!ctx) return;
   const now = ctx.currentTime;
-  master.gain.cancelScheduledValues(now);
-  master.gain.setValueAtTime(master.gain.value, now);
-  master.gain.linearRampToValueAtTime(m ? 0 : MASTER, now + 0.1);
+  for (const [g, v] of [[fx, FX_VOL], [music, SONG_VOL]]) {
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.linearRampToValueAtTime(m ? 0 : v, now + 0.25);
+  }
 }
 
+// Pause everything while the page is hidden; the song continues where it was when she comes back.
 document.addEventListener("visibilitychange", () => {
   if (!ctx) return;
   if (document.hidden) {
     wasRunning = ctx.state === "running";
-    stopTune();
     if (silent) silent.pause();
     ctx.suspend().catch(() => {});
   } else if (wasRunning) {

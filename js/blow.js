@@ -1,12 +1,13 @@
 // Microphone blow detection. Every failure path ends in the tap-the-candles fallback.
 
-// Tunable constants
-const CALIBRATE_MS = 600;        // ambient noise measurement at the start
-const SENSITIVITY_RANGE = 0.12;  // RMS above baseline that counts as a full blow (level 1)
-const NOISE_MARGIN = 0.006;      // ignore tiny RMS changes above baseline
-const LEVEL_GATE = 0.22;         // levels below this count as quiet
-const ENERGY_THRESHOLD = 0.4;    // seconds of full-strength blowing needed
-const ENERGY_DECAY = 0.35;       // energy lost per second while quiet
+// Tunable constants (tuned to be forgiving: a short, gentle blow at the phone is enough)
+const CALIBRATE_MS = 500;        // ambient noise measurement at the start
+const SENSITIVITY_RANGE = 0.045; // RMS above baseline that counts as a full blow (level 1)
+const NOISE_MARGIN = 0.003;      // ignore tiny RMS changes above baseline
+const BASELINE_MAX = 0.02;       // if she is already blowing during calibration, do not learn that as "quiet"
+const LEVEL_GATE = 0.12;         // levels below this count as quiet
+const ENERGY_THRESHOLD = 0.2;    // seconds of full-strength blowing needed (about half a second of a gentle blow)
+const ENERGY_DECAY = 0.2;        // energy lost per second while quiet
 const NO_BLOW_TIMEOUT_MS = 8000; // then also offer the tap fallback
 const NO_MIC_TIMEOUT_MS = 10000; // some in-app webviews never answer the permission request
 const LOW_FREQ_HZ = 1500;        // blowing is mostly broadband low-frequency noise
@@ -77,9 +78,11 @@ export async function startBlow(ctx, { onLevel, onSuccess, onFallback, log }) {
     let lo = 0, all = 0;
     for (let i = 0; i < fd.length; i++) { const e = fd[i] * fd[i]; all += e; if (i < lowBins) lo += e; }
     const lowShare = all ? lo / all : 0;
-    const baseline = baseN ? baseSum / baseN : 0;
+    // Quiet moments after calibration may lower the baseline further (never raise it).
+    let baseline = Math.min(BASELINE_MAX, baseN ? baseSum / baseN : 0);
+    if (rms < baseline) { baseSum = rms * baseN; baseline = rms; }
     const raw = Math.max(0, Math.min(1, (rms - baseline - NOISE_MARGIN) / SENSITIVITY_RANGE));
-    const level = raw * (0.55 + 0.45 * lowShare);
+    const level = raw * (0.75 + 0.25 * lowShare);
     onLevel(level);
     if (level > LEVEL_GATE) energy += level * dt;
     else energy = Math.max(0, energy - ENERGY_DECAY * dt);

@@ -11,11 +11,15 @@ const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, t) => { t = Math.min(1, Math.max(0, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
 // As in the reference photo: the closed album lies on the table left of the cake stand, the plush sits on the right.
-const PLUSH_AT = new THREE.Vector3(20, 0, 7), PLUSH_H = 16;
-const BOOK_AT = new THREE.Vector3(-19.5, 0, 4), BOOK_YAW = 0.32, BOOK = [16, 3, 21];
+// Both sit close enough to the cake that the whole group (album, cake, plush with its tail) fits a phone screen.
+const PLUSH_AT = new THREE.Vector3(18, 0, 8), PLUSH_H = 16;
+const BOOK_AT = new THREE.Vector3(-17.5, 0, 5), BOOK_YAW = 0.32, BOOK = [14, 2.8, 19];
 // The table top ends this far behind the cake (turned a little); the warm bokeh backdrop shows beyond its edge.
 const TABLE_BACK = 52, TABLE_YAW = -0.04;
 const ELEV = 18 * DEG, FOV = 28;
+// Only the three slices facing the viewer can be opened; they carry messages 1 to 3, left to right on screen.
+// Outside this file a slice is always addressed by that message index (0 to 2), never by its cake index.
+const FRONT = [2, 1, 0];
 
 // Small warm room used only to light reflections (image based lighting).
 function envScene() {
@@ -184,8 +188,8 @@ export async function createWorld(o) {
   });
   const sliceList = document.createElement("div");
   sliceList.className = "sr-only";
-  sliceList.innerHTML = cake.slices.map((s, k) => `<button type="button">${ui.sliceAria.replace("{n}", k + 1)}</button>`).join("");
-  [...sliceList.children].forEach((b, k) => b.addEventListener("click", () => o.onSliceTap(k)));
+  sliceList.innerHTML = FRONT.map((k, i) => `<button type="button">${ui.sliceAria.replace("{n}", i + 1)}</button>`).join("");
+  [...sliceList.children].forEach((b, i) => b.addEventListener("click", () => o.onSliceTap(i)));
   ov.appendChild(sliceList);
 
   // Dark veil drawn inside WebGL while a slice is being read
@@ -214,7 +218,8 @@ export async function createWorld(o) {
   }
   C.candles.forEach(c => cakePts.push(c.group.localToWorld(c.base.clone().add(new THREE.Vector3(0, 2.6, 0)))));
   { const b = new THREE.Box3().setFromObject(book); for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) sidePts.push(new THREE.Vector3(x, y, z)); }
-  sidePts.push(PLUSH_AT.clone().add(new THREE.Vector3(-5, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(13, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0, PLUSH_H + 1, 0)));
+  // The plush image is mirrored: about 7 cm left of its seat to the tail tip about 12.5 cm right of it.
+  sidePts.push(PLUSH_AT.clone().add(new THREE.Vector3(-7.5, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(13, 0, 0)), PLUSH_AT.clone().add(new THREE.Vector3(0, PLUSH_H + 1, 0)));
 
   function fit() {
     const w = innerWidth, h = innerHeight, portrait = h >= w;
@@ -230,18 +235,18 @@ export async function createWorld(o) {
       camera.lookAt(target);
       camera.updateMatrixWorld();
       camera.updateProjectionMatrix();
-      ext = { cx: 0, sx: 0, y0: 9, y1: -9 };
-      for (const p of cakePts) { v3.copy(p).project(camera); ext.cx = Math.max(ext.cx, Math.abs(v3.x)); ext.y0 = Math.min(ext.y0, v3.y); ext.y1 = Math.max(ext.y1, v3.y); }
-      for (const p of sidePts) { v3.copy(p).project(camera); ext.sx = Math.max(ext.sx, Math.abs(v3.x)); }
+      ext = { x0: 9, x1: -9, y0: 9, y1: -9 };
+      for (const p of cakePts) { v3.copy(p).project(camera); ext.y0 = Math.min(ext.y0, v3.y); ext.y1 = Math.max(ext.y1, v3.y); ext.x0 = Math.min(ext.x0, v3.x); ext.x1 = Math.max(ext.x1, v3.x); }
+      for (const p of sidePts) { v3.copy(p).project(camera); ext.x0 = Math.min(ext.x0, v3.x); ext.x1 = Math.max(ext.x1, v3.x); }
     };
-    // Portrait: the stand spans about 62% of the width, like the photo. Landscape: everything fits.
+    // The whole group (album, cake, plush) fits the width with a small margin, in portrait and landscape.
     for (let i = 0; i < 8; i++) {
       measure();
-      d *= Math.max(portrait ? ext.cx / 0.62 : Math.max(ext.cx, ext.sx) / 0.92, (ext.y1 - ext.y0) / (2 * (bottom - topLim)));
+      d *= Math.max((ext.x1 - ext.x0) / (portrait ? 1.9 : 1.84), (ext.y1 - ext.y0) / (2 * (bottom - topLim)));
     }
     measure();
-    // Lens shift (no change of perspective): the cake stays centred, its foot lands on `bottom`.
-    camera.setViewOffset(w, h, 0, ((1 - 2 * bottom - ext.y0) * h) / 2, w, h);
+    // Lens shift (no change of perspective): the group is centred across, the stand's foot lands on `bottom`.
+    camera.setViewOffset(w, h, ((ext.x0 + ext.x1) / 2) * (w / 2), ((1 - 2 * bottom - ext.y0) * h) / 2, w, h);
     camera.updateProjectionMatrix();
     placeOverlays();
     invalidate();
@@ -329,7 +334,7 @@ export async function createWorld(o) {
     for (const hit of ray.intersectObjects([...cake.slices, C.group, book], true)) {
       const u = hit.object.userData;
       if (u.candle !== undefined) { if (C.candles[u.candle].lit) return o.onCandleTap(u.candle); continue; }
-      if (u.k !== undefined) return o.onSliceTap(u.k);
+      if (u.k !== undefined) { const i = FRONT.indexOf(u.k); if (i >= 0) o.onSliceTap(i); return; } // the back of the cake ignores taps
       if (book.getObjectById(hit.object.id)) return o.onAlbumTap();
     }
   });
@@ -346,7 +351,7 @@ export async function createWorld(o) {
     if (s.userData.text) return s.userData.text;
     const r1 = 0.36 * R, r2 = 0.8 * R, hgt = r2 - r1, wid = 2 * r2 * Math.tan(Math.PI / 8) * 0.95;
     const W = 1024, Hp = Math.round((W * hgt) / wid);
-    const map = TX.icingText((messages && messages[k]) || "", W, Hp, t => (2 * (r2 - t * hgt) * Math.tan(Math.PI / 8) * 0.8) / wid);
+    const map = TX.icingText((messages && messages[FRONT.indexOf(k)]) || "", W, Hp, t => (2 * (r2 - t * hgt) * Math.tan(Math.PI / 8) * 0.8) / wid);
     map.anisotropy = aniso;
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wid, hgt), new THREE.MeshStandardMaterial({ map, transparent: true, roughness: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
     const rr = radial(s.userData.mid), t = new THREE.Vector3().crossVectors(rr, Y);
@@ -435,14 +440,15 @@ export async function createWorld(o) {
     });
   }
 
-  // After the wish the cake is "cut": every slice eases a few millimetres outward, so the cut lines
-  // (a thin gap showing the sponge) make it obvious where to tap.
+  // After the wish the three front slices are "cut": each eases a few millimetres outward, so the cut lines
+  // (a thin gap showing the sponge) make it obvious which slices to tap. The back of the cake stays whole.
   let cut = 0;
   function setCut(on) {
     const from = cut, to = on ? 1 : 0;
     animate(reduced ? 1 : 900, t => {
       cut = lerp(from, to, ease(t));
-      cake.slices.forEach((s, k) => {
+      FRONT.forEach(k => {
+        const s = cake.slices[k];
         s.userData.pivot.copy(s.userData.pivot0).addScaledVector(radial(s.userData.mid), 0.45 * cut);
         if (k !== openK) s.position.copy(s.userData.pivot);
       });
@@ -481,12 +487,13 @@ export async function createWorld(o) {
     setLocked() {},
     shimmer() {},
     setLights(on) { const from = light, to = on ? 1 : 0; animate(reduced ? 1 : 2200, t => applyLight(lerp(from, to, ease(t)))); },
-    shakeSlice(k) {
-      const s = cake.slices[k], inner = s.userData.inner, base = inner.position.clone(), t3 = new THREE.Vector3().crossVectors(radial(s.userData.mid), Y);
+    shakeSlice(i) {
+      const s = cake.slices[FRONT[i]], inner = s.userData.inner, base = inner.position.clone(), t3 = new THREE.Vector3().crossVectors(radial(s.userData.mid), Y);
       animate(reduced ? 1 : 420, t => inner.position.copy(base).addScaledVector(t3, 0.3 * Math.sin(t * Math.PI * 6) * (1 - t)), () => inner.position.copy(base));
     },
-    openSlice,
-    closeSlice,
+    // Slices are addressed by message index here (0 to 2, left to right), see FRONT.
+    openSlice: i => openSlice(FRONT[i]),
+    closeSlice: done => closeSlice(done && (k => done(FRONT.indexOf(k)))),
     closeSliceNow() { if (openK !== -1) finish(openK); invalidate(); },
     isSliceOpen: () => openK !== -1,
     resetVisited() { cake.slices.forEach(s => { s.userData.heart.visible = false; }); invalidate(); },

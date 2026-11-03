@@ -1,5 +1,5 @@
 // Plush unicorn, a boy: white minky with cool pastel tints, gold horn, blue-green-gold rainbow mane and tail,
-// short brows and a smile (always smiling; no blush, no lashes).
+// short brows (no blush, no lashes). A little sad before the wish, smiling after it.
 // Each part is a pre-rendered SVG image (fabric filters render once), stacked and animated with CSS transforms.
 // Art is drawn around the seat point (0,0).
 const RAD = Math.PI / 180;
@@ -114,6 +114,10 @@ const SMILE = `<path d="M-9.5-61.5Q0-54.5 9.5-61.5M-9.5-61.5l-1.6-1.3M9.5-61.5l1
 // Short stitched brows give him a cheerful, boyish look.
 const BROWS = `<path d="M-18.5-89Q-13.5-92.5-8.5-90.5M8.5-90.5Q13.5-92.5 18.5-89" fill="none" stroke="#6E6474" stroke-width="1.7" stroke-linecap="round"/>`;
 const happyArt = () => `${FACE_DEFS}${eye(-13, -80, 4.5)}${eye(13, -80, 4.5)}${BROWS}${SMILE}`;
+// A little sad before the wish: brows raised in the middle, eyes glancing down, a small stitched frown.
+const sadArt = () => `${FACE_DEFS}${eye(-13, -79.5, 4.3, 1.3)}${eye(13, -79.5, 4.3, 1.3)}
+<path d="M-18.5-88Q-13.5-89-8.5-92.5M8.5-92.5Q13.5-89 18.5-88" fill="none" stroke="#6E6474" stroke-width="1.7" stroke-linecap="round"/>
+<path d="M-6.5-58Q0-61.5 6.5-58" ${THREAD}/>`;
 const blinkArt = () => `${FACE_DEFS}<path d="M-17.5-80Q-13-84-8.5-80M8.5-80Q13-84 17.5-80" fill="none" stroke="#1E1A1D" stroke-width="1.5" stroke-linecap="round"/>${BROWS}${SMILE}`;
 const glowArt = () => `<defs><radialGradient id="g"><stop offset="0" stop-color="#FFE9C4" stop-opacity=".8"/><stop offset=".55" stop-color="#E9D4FF" stop-opacity=".35"/><stop offset="1" stop-color="#E9D4FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="0" cy="-70" rx="70" ry="62" fill="url(#g)"/>`;
 
@@ -141,7 +145,7 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1 }) {
     place(b.lastElementChild, at);
   };
   const uni = document.createElement("div");
-  uni.className = "uni";
+  uni.className = "uni mood-sad";
   uni.innerHTML = `<div class="uni-wig"><div class="uni-breathe"></div></div>`;
   const wig = uni.firstChild, b = wig.firstChild;
   // Breathing and wiggle pivot on the seat point
@@ -151,6 +155,7 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1 }) {
   part("u-ear u-ear-l", [-10, -21, 20, 26], earArt(), [-25.5, -117, 20, 26]);
   part("u-ear u-ear-r", [-10, -21, 20, 26], earArt(), [5.5, -117, 20, 26]);
   part("u-base", [-96, -128, 150, 136], baseArt());
+  part("u-face f-sad", [-30, -100, 60, 50], sadArt());
   part("u-face f-happy", [-30, -100, 60, 50], happyArt());
   part("u-face f-blink", [-30, -100, 60, 50], blinkArt());
   inline("u-spark", [-7, -135, 14, 14], "-7 -7 14 14", `<path d="${star4(0, 0, 6)}" fill="#FFF6D8" stroke="#E9B44C" stroke-width=".6"/>`);
@@ -161,8 +166,11 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1 }) {
   host.appendChild(uni);
   let blinkTimer = 0;
   return {
-    // "calm" (before the wish) or "happy" (after it: glow and sparkle). The face always smiles.
-    setMood(m) { uni.classList.toggle("party", m === "happy"); },
+    // "sad" (a little, before the wish) or "happy" (after it: smile, ears up, glow and sparkle).
+    setMood(m) {
+      uni.classList.toggle("party", m === "happy");
+      uni.classList.toggle("mood-sad", m !== "happy");
+    },
     react(big) {
       wig.classList.remove("wiggle", "nudge");
       if (!big) { restart(wig, "nudge"); return; }

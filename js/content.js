@@ -22,6 +22,7 @@ export const CONTENT = {
     soundOn: "Hang be",
     soundOff: "Hang ki",
     replayTune: "Dallam újra",
+    restart: "Újrakezdés",
     soundHint: "Kapcsold be a hangot",
     noWebgl: "Nyisd meg az oldalt Safariban vagy Chrome-ban!",
     // Screen reader labels. {n} is replaced with a number.
@@ -38,13 +39,13 @@ export const CONTENT = {
     cakeAria: "Torta",
   },
 
-  // EXACTLY 8. Replace these. Keep each to about 2-6 words so it fits on a slice.
+  // EXACTLY 3, one for each of the three front slices, left to right. Replace these.
+  // Keep each to about 2-6 words so it fits on a slice.
   sliceMessages: [
-    "Üzenet 1", "Üzenet 2", "Üzenet 3", "Üzenet 4",
-    "Üzenet 5", "Üzenet 6", "Üzenet 7", "Üzenet 8",
+    "Üzenet 1", "Üzenet 2", "Üzenet 3",
   ],
 
-  // Shown near the cake after all 8 slices were opened. Empty string means disabled.
+  // Shown near the cake after all 3 slices were opened. Empty string means disabled.
   allSlicesText: "",
 
   // Wax number candles on the cake, one per digit.
