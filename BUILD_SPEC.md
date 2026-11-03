@@ -14,7 +14,7 @@ This document replaces the first version of the spec.
 2. **One vendored library: three.js** (MIT, r160, `js/vendor/three.module.min.js`), self-hosted. No other runtime dependencies.
 3. **No third-party requests at runtime.** No CDNs, analytics, external fonts or images. Every texture is generated procedurally on a canvas at load time; photos, fonts and the birthday song are self-hosted.
 4. **No cost.** Vercel Hobby plan only.
-5. **Do not invent the 3 slice messages.** The author writes them. Ship placeholders ("Üzenet 1" ... "Üzenet 3").
+5. **Do not invent the slice message.** The author writes it. There is one slice message: "Szeretlek és hiányzol :((".
 6. **No em-dashes or en-dashes anywhere** (code, comments, copy, docs). Use commas, periods or hyphens.
 7. **Never broken without assets.** A missing photo shows a pastel placeholder page with its number.
 8. **Primary device: iPhone 17 Pro in Safari, portrait** (402 x 874 pt screen, about 402 x 760 visible with Safari's bars; Dynamic Island and home indicator respected through safe-area insets). Must also feel finished at 360 to 430 px wide portrait; landscape and desktop must look good too (the 3D framing adapts).
@@ -24,7 +24,7 @@ This document replaces the first version of the spec.
 
 ## 1. Story beats
 
-1. **Opening.** Warm, candle-lit scene. The plush unicorn (a boy, looking a little sad) asks in a speech bubble: `Tudtad, hogy Rutéba nem lehet tortát kiszállítani?` The candles burn and light the cake.
+1. **Opening.** Warm, candle-lit scene. The plush unicorn (a boy, looking a little sad) asks in a speech bubble: `Tudtad, hogy Rutéba nem lehet tortát kiszállítani? :((` The candles burn and light the cake.
 2. **The wish.** She taps "Fújd el a gyertyákat!", allows the microphone and blows. The flames lean with the strength of her breath and go out with smoke. Tapping a candle puts it out at any time before the wish is complete, mic or not.
 3. **The payoff.** The unicorn's bubble pops and now says `Boldog szülinapot, Kicsim!` (capital K, author's choice), the lights come up, confetti, the big band swing birthday song starts and keeps looping, and as it starts small fireworks go off in the sky above the cake (about 9 rockets over 6 s; again on "Dallam újra"), the unicorn glows and sparkles.
 4. **Exploring.** Tapping the cake lifts that slice out of the cake toward her, showing the layered inside, with the message piped in icing on top. Tapping the album opens it; pages flip in 3D; tapping a photo shows it full size.
@@ -68,7 +68,7 @@ Target browsers: iOS Safari 15+ and Chrome for Android 100+ (WebGL required; if 
 
 ## 3. Content (`js/content.js`)
 
-One exported object: `lang`, `pageTitle`, `intro` (the unicorn's question before the wish), `happy` (what its bubble says after), `ui` (all UI strings and screen reader labels), `sliceMessages` (exactly 3, for the three front slices, left to right), `allSlicesText` (optional, empty disables), `candleNumber` ("26", one wax candle per digit, digits 0 to 9 supported), `topper` (the small sign on a pick beside the candles, "Vegan!", "" for none), `unicornShirt` (the name on the unicorn's blue t-shirt, "Ákos", "" for a plain shirt), `album` (`title` gold-stamped on the cover, optional `dedication` inside the cover), `photos` (exactly 26 `{ id, caption }`, in album page order).
+One exported object: `lang`, `pageTitle`, `intro` (the unicorn's question before the wish), `happy` (what its bubble says after), `ui` (all UI strings and screen reader labels), `sliceMessages` (exactly 1, for the front slice), `allSlicesText` (optional, empty disables), `candleNumber` ("26", one wax candle per digit, digits 0 to 9 supported), `topper` (the small sign on a pick beside the candles, "Vegan!", "" for none), `unicornShirt` (the name on the unicorn's blue t-shirt, "Ákos", "" for a plain shirt), `album` (`title` gold-stamped on the cover, optional `dedication` inside the cover), `photos` (exactly 26 `{ id, caption }`, in album page order).
 
 Photo `id` N maps to `assets/photos/full/NN.jpg` and `thumb/NN.jpg`. Validate counts at startup with `console.warn`, but always render.
 
@@ -96,8 +96,8 @@ Photo `id` N maps to `assets/photos/full/NN.jpg` and `thumb/NN.jpg`. Validate co
 - Radius 12.5, height 15 (a tall, wide layer cake, so it fills more of the phone screen; author request; the stand and the strawberry layout scale with the radius), smooth white cream with a softly rounded top edge, on a white glazed ceramic cake stand (foot, short stem, plate with a low rim). Soft contact shadows under the foot and around the base of the cake.
 - Whipped cream: smooth sides with faint spatula marks, soft top; a faint emissive term stands in for light scattering inside the cream so it reads white, not grey.
 - Piped shell border of cream around the base of the cake, on the plate.
-- **8 slices**, each a separate object: cream top, cream side with the rounded edge, two cut faces with a sponge texture (three vanilla sponge layers, cream fillings, strawberry pieces, outer frosting), and its own segment of the base border. **Only the three slices facing the viewer can be opened** (author request); they carry messages 1 to 3, left to right. Taps on the rest of the cake do nothing.
-- **Cut after the wish:** when the candles go out, the three front slices ease about 4.5 mm outward, so thin gaps (showing the sponge on the sides) mark exactly which slices to tap; the back of the cake stays whole. Reset puts the cake back together.
+- **8 slices**, each a separate object: cream top, cream side with the rounded edge, two cut faces with a sponge texture (three vanilla sponge layers, cream fillings, strawberry pieces, outer frosting), and its own segment of the base border. **Only one slice can be opened, the middle one facing the viewer** (author request); it carries the message. Taps on the rest of the cake do nothing.
+- **Cut after the wish:** when the candles go out, the front slice eases about 1.1 cm out of the cake, so the gaps (showing the sponge on its sides) make it obvious that it can be tapped; the rest of the cake stays whole. Reset puts the cake back together.
 - **Strawberries:** only whole berries (no halves), resting calyx up and leaning back or outward, heaped behind and beside the candles. Nothing stands in front of the candles, so they are seen whole; the front of the top stays bare cream. Each berry rests on the cream (lowest point slightly sunk in) and belongs to the slice it sits on; while a slice's message is read its berries step aside and come back when it is put back. All cast and receive shadows.
 
 ### 4.5 Number candles
@@ -129,7 +129,7 @@ Photo `id` N maps to `assets/photos/full/NN.jpg` and `thumb/NN.jpg`. Validate co
 - Opening: the closed book flies from the table into the centre, already lying where the right page will be, and only the cover swings over to the left, uncovering photo 1 (no title page in between; author request). The optional dedication is written on the inside of the cover, the left page facing photo 1.
 - No flicker after a turn: a page still in the air stays above the stacks until its own turn ends (also when the user turns again quickly), and pages buried under the top page on either side are hidden.
 - Turn pages by swiping left (forward) or right (back) anywhere in the viewer (touch or mouse, pointer-captured so a swipe always completes; text selection and image dragging are disabled), tapping (left edge of the screen = back, right side = forward), the arrows, or the keyboard. Tapping above or below the book closes the album. Page counter like `5 / 26`. Photos load only when the album is opened, a few pages ahead (full image, then thumb, then placeholder).
-- Tapping a photo opens the full-size viewer (swipe or arrows through all 26). Closing it jumps the album to the photo she ended on.
+- Tapping a photo opens the full-size viewer (swipe or arrows through all 26). Tapping again anywhere, the zoomed photo included (author request), swiping down, "Bezár" or Escape closes it. Closing it jumps the album to the photo she ended on.
 - Close: "Bezár", Escape, a tap above or below the book, or going forward from the last photo (swipe, tap, arrow or key): the book closes and flies back to the table. Focus is trapped while open and restored on close.
 
 ## 7. Blow detection (`blow.js`)
@@ -156,7 +156,7 @@ The author's song `assets/audio/birthday-swing.mp3` (big band swing "Happy Birth
 - [ ] Locked slices before the wish; album opens any time.
 - [ ] Mic blow bends the flames, then puts them out with smoke; mic indicator turns off; all fallbacks work.
 - [ ] Celebration: lights up, the unicorn's bubble changes to the birthday wish, confetti, tune once, unicorn glows.
-- [ ] Each of the three front slices lifts out, shows layered inside and its message, returns, gets a heart; the back of the cake ignores taps.
+- [ ] The front slice moves out after the wish, lifts out on tap, shows layered inside and its message, returns, gets a heart; the rest of the cake ignores taps.
 - [ ] Album: opens from the table, all 26 pages flip, photo viewer works, closes back to the table.
 - [ ] iPhone 17 Pro 402x874 and 402x760 (Safari bars), plus 360x640, 390x844, 430x932, landscape (874x402) and desktop framing; no console errors; reduced motion honoured.
 - [ ] Album: looks like an open book zoomed onto the right page (left page peeking), page turns look like flipping a book, swipe left and right through all 26 photos on a phone, tap a photo to zoom.

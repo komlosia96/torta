@@ -122,12 +122,11 @@ export function createLightbox(el, photos, ui, { getSource, reduced, onBeforeClo
   btnPrev.addEventListener("click", () => nav(-1));
   btnNext.addEventListener("click", () => nav(1));
 
-  // Swipe left/right to navigate, down to close, tap the scrim to close.
-  let sx = 0, sy = 0, drag = false, pid = null, onCard = false;
+  // Swipe left/right to navigate, down to close, tap anywhere (the photo too) to close.
+  let sx = 0, sy = 0, drag = false, pid = null;
   el.addEventListener("pointerdown", e => {
     if (!isOpen || busy || e.target.closest("button")) return;
     sx = e.clientX; sy = e.clientY; drag = true; pid = e.pointerId;
-    onCard = !!e.target.closest(".lb-card");
     try { el.setPointerCapture(pid); } catch (_) { /* ignore */ }
   });
   el.addEventListener("pointermove", e => {
@@ -143,7 +142,7 @@ export function createLightbox(el, photos, ui, { getSource, reduced, onBeforeClo
     const dx = e.clientX - sx, dy = e.clientY - sy, moved = Math.hypot(dx, dy) > 10;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) return nav(dx < 0 ? 1 : -1);
     if (dy > 80 && dy > Math.abs(dx)) return close();
-    if (!moved && e.type === "pointerup" && !onCard) return close();
+    if (!moved && e.type === "pointerup") return close();
     if (card.style.transform) {
       const t = card.style.transform;
       card.style.transform = "";

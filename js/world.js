@@ -19,9 +19,9 @@ const BOOK_AT = new THREE.Vector3(-13.5, 0, 17), BOOK_YAW = 0.32, BOOK = [15, 3,
 // The table top ends this far behind the cake (turned a little); the warm bokeh backdrop shows beyond its edge.
 const TABLE_BACK = 52, TABLE_YAW = -0.04;
 const ELEV = 18 * DEG, FOV = 28;
-// Only the three slices facing the viewer can be opened; they carry messages 1 to 3, left to right on screen.
-// Outside this file a slice is always addressed by that message index (0 to 2), never by its cake index.
-const FRONT = [2, 1, 0];
+// Only the middle slice facing the viewer can be opened (author request); it carries the message.
+// Outside this file a slice is always addressed by its message index (0), never by its cake index.
+const FRONT = [1];
 
 // Small room in the scene's palette used only to light reflections (image based lighting).
 function envScene() {
@@ -459,8 +459,8 @@ export async function createWorld(o) {
     });
   }
 
-  // After the wish the three front slices are "cut": each eases a few millimetres outward, so the cut lines
-  // (a thin gap showing the sponge) make it obvious which slices to tap. The back of the cake stays whole.
+  // After the wish the front slice is "cut": it eases about a centimetre out of the cake, so the cut lines
+  // (a gap showing the sponge) make it obvious that it can be tapped. The rest of the cake stays whole.
   let cut = 0;
   function setCut(on) {
     const from = cut, to = on ? 1 : 0;
@@ -468,7 +468,7 @@ export async function createWorld(o) {
       cut = lerp(from, to, ease(t));
       FRONT.forEach(k => {
         const s = cake.slices[k];
-        s.userData.pivot.copy(s.userData.pivot0).addScaledVector(radial(s.userData.mid), 0.45 * cut);
+        s.userData.pivot.copy(s.userData.pivot0).addScaledVector(radial(s.userData.mid), 1.1 * cut);
         if (k !== openK) s.position.copy(s.userData.pivot);
       });
     });
@@ -510,7 +510,7 @@ export async function createWorld(o) {
       const s = cake.slices[FRONT[i]], inner = s.userData.inner, base = inner.position.clone(), t3 = new THREE.Vector3().crossVectors(radial(s.userData.mid), Y);
       animate(reduced ? 1 : 420, t => inner.position.copy(base).addScaledVector(t3, 0.3 * Math.sin(t * Math.PI * 6) * (1 - t)), () => inner.position.copy(base));
     },
-    // Slices are addressed by message index here (0 to 2, left to right), see FRONT.
+    // Slices are addressed by message index here (0), see FRONT.
     openSlice: i => openSlice(FRONT[i]),
     closeSlice: done => closeSlice(done && (k => done(FRONT.indexOf(k)))),
     closeSliceNow() { if (openK !== -1) finish(openK); invalidate(); },

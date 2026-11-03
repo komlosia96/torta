@@ -21,7 +21,7 @@ if (lowEnd) root.classList.add("lowend");
 // Content validation: warn, but always render.
 const messages = Array.isArray(C.sliceMessages) ? C.sliceMessages : [];
 const photos = Array.isArray(C.photos) ? C.photos : [];
-if (messages.length !== 3) console.warn(`[torta] content.js: sliceMessages should have exactly 3 items (the three front slices), found ${messages.length}.`);
+if (messages.length !== 1) console.warn(`[torta] content.js: sliceMessages should have exactly 1 item (the front slice), found ${messages.length}.`);
 if (photos.length !== 26) console.warn(`[torta] content.js: photos should have exactly 26 items, found ${photos.length}.`);
 const ids = photos.map(p => p.id);
 if (new Set(ids).size !== ids.length) console.warn("[torta] content.js: photo ids must be unique, found duplicates.");

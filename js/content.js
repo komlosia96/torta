@@ -5,7 +5,7 @@ export const CONTENT = {
 
   // The unicorn says this in its speech bubble before the wish...
   intro: {
-    text: "Tudtad, hogy Rutéba nem lehet tortát kiszállítani?",
+    text: "Tudtad, hogy Rutéba nem lehet tortát kiszállítani? :((",
   },
   // ...and the same bubble changes to this once the candles are out.
   happy: {
@@ -39,13 +39,13 @@ export const CONTENT = {
     cakeAria: "Torta",
   },
 
-  // EXACTLY 3, one for each of the three front slices, left to right. Replace these.
-  // Keep each to about 2-6 words so it fits on a slice.
+  // EXACTLY 1: the message on the slice in the front middle of the cake, the only one that can be opened.
+  // Keep it to about 2-6 words so it fits on the slice.
   sliceMessages: [
-    "Üzenet 1", "Üzenet 2", "Üzenet 3",
+    "Szeretlek és hiányzol :((",
   ],
 
-  // Shown near the cake after all 3 slices were opened. Empty string means disabled.
+  // Shown near the cake after the slice was opened. Empty string means disabled.
   allSlicesText: "",
 
   // Wax number candles on the cake, one per digit.

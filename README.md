@@ -6,8 +6,8 @@ Static single page site with a photoreal 3D scene (WebGL). No build step; the on
 
 Everything you write lives in `js/content.js`:
 
-- `sliceMessages`: exactly 3 short Hungarian messages (2 to 6 words each), one for each of the three front slices, left to right. Each one is piped in icing on top of the slice she pulls out of the cake.
-- `allSlicesText`: optional line shown after all 3 slices were opened. Empty string turns it off.
+- `sliceMessages`: exactly 1 short Hungarian message (2 to 6 words), piped in icing on top of the one slice she pulls out of the cake (the middle one at the front).
+- `allSlicesText`: optional line shown after the slice was opened. Empty string turns it off.
 - `photos`: exactly 26 entries, one per page of the leather photo album next to the cake, in page order. `caption` is optional short handwritten text under the photo.
 - `album.title`: gold lettering on the album cover (default "26"). `album.dedication`: optional line on the page facing photo 1, empty string shows nothing. The album opens straight onto photo 1.
 - `candleNumber`: the wax number candles on the cake, default "26" (one candle per digit).
