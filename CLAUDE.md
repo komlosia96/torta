@@ -1,0 +1,52 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+A static, single-page birthday gift in Hungarian: a photoreal three.js scene (cake with number candles, table, blurred room, plush unicorn, leather photo album). `BUILD_SPEC.md` (v2) is the source of truth for behaviour and design; `README.md` is the author-facing guide (editing content, photos, deploy). Read the spec before changing behaviour.
+
+## Hard rules (from BUILD_SPEC.md section 0)
+
+- No build step, no package.json. Plain ES modules loaded by `index.html`. The only library is three.js r160, vendored at `js/vendor/three.module.min.js`; never add another dependency or a CDN import.
+- No third-party requests at runtime. Every texture is generated on a canvas in `js/tex.js`; fonts are self-hosted in `assets/fonts/`.
+- No em-dashes or en-dashes anywhere (code, comments, UI copy, docs, including this file). Use commas, periods or hyphens.
+- Never invent the 8 slice messages. `"Üzenet 1"` ... `"Üzenet 8"` in `js/content.js` are deliberate placeholders the author replaces.
+- Never broken without assets: a missing photo must fall back to a pastel numbered placeholder, and the blow flow must always have a tap fallback.
+- Primary target: iPhone 17 Pro in Safari, portrait (test at 402x874 and 402x760). Other phones 360 to 430 px wide, landscape and desktop must still frame well.
+
+## Commands
+
+There are no tests, linters or build. Verification is done in the browser.
+
+- Preview: `.claude/launch.json` config `torta` runs `dev/devserver.py`, a no-cache Python server, on port 5174. Use it rather than plain `python -m http.server`, which lets the browser serve stale ES modules after edits. By hand: `python -I dev/devserver.py . 5174`.
+- Dev mode: append `?dev=1`. Keys `C` (celebrate) and `R` (reset); blow levels are logged; `window.__world` is exposed, with `__world.debugZoom(z)` for close-ups of scene detail. Reload after using `debugZoom` before judging framing: a resize while zoomed solves the camera with the zoom applied.
+- Font check: `/dev/glyph-test.html` must report PASS (ő and ű come from the bundled fonts).
+- Photos: `node scripts/optimize-photos.mjs` (needs `npm install --no-save sharp`) turns `photos-original/` into `assets/photos/full|thumb/NN.jpg`. Node is not installed on this machine; Python is. There is no git either.
+- Deploy: `npx vercel`, then `npx vercel --prod` (framework "Other", no build command). `.vercelignore` keeps `dev/`, `scripts/`, `.claude/`, `photos-original/` and `README.md` out of the deployment.
+
+## Architecture
+
+**Boot and state (`js/main.js`).** Uses top-level `await createWorld(...)`; if it returns `null` (no WebGL) a message is shown and boot stops. Owns the state machine `WISH -> BLOWING -> CELEBRATE -> PLAY`, all 2D DOM UI (the unicorn's speech bubble, buttons, toast, hearts), and the lock rule (slices only open in `PLAY`). Inside main.js the world object is also referred to as `cake`; it is the same object. `celebrate()` is idempotent and `reset()` must undo everything it does. The speech bubble (`#say` plus the SVG tail `#sayTail`) is placed by `placeSay()` from `world.unicornHead()` and `world.candlesRect()`; it says `content.intro.text` before the wish and `content.happy.text` after.
+
+**3D scene (`js/world.js`).** Owns the renderer, lights, table, board, plate, the 3D album model, picking and the slice pull-out animation. Key mechanisms that span files:
+- *Framing:* `fit()` solves the camera distance so a set of key points (`fitPts`: board rim, candle tops, plush, album corners) fills the free band between the message zone (top 20%) and the button zone (bottom 14%), then centres it with `setViewOffset` (lens shift, no perspective change). Anything new that must stay on screen should be added to `fitPts`.
+- *DOM overlays tracked to 3D:* the plush unicorn, the album button and the candle tap buttons are DOM elements in `#ov`, positioned in `placeOverlays()` by projecting world points. `fit()` calls it on resize; anything that moves a tracked object must re-place its overlay.
+- *Render on demand:* nothing renders unless `invalidate()` is called. The rAF loop keeps running only while `anims` is non-empty or candles are lit/smoking (`C.anyLit`, `C.busy`). Use `animate(ms, step, done)` for any motion: it also lands the final state via `setTimeout` if frames are throttled, so state never sticks. Shadow map `autoUpdate` is off and `render()` flags it each frame.
+- *Reading a slice:* the open slice is moved to camera layer 1 and drawn after a full-screen scrim pass (`scrimScene`) with a depth clear, so the rest of the scene darkens behind it inside WebGL. The icing text mesh is created lazily per slice (`textMesh`) and revealed left to right with a clipping plane.
+
+**Scene parts.** All units are centimetres. The look is modelled on the author's reference picture (cake on a white stand, whole strawberries, wax "26", dark table ending behind the cake, golden bokeh, album left, plush right). Author rules: the candles are tall (8 cm), stand on top of the cream (not sunk in) and must be fully visible (no strawberry in front of them), the bokeh is spread evenly over the backdrop (not one band), only whole strawberries (no halves), a piped cream border at the base, and after the wish the slices separate slightly (`world.setCut`, which moves each slice's `userData.pivot` away from `pivot0`) so the cut lines show. `js/cake.js` exports the cake dimensions (`R`, `H`, `Y0` = top of the cake stand's plate, `TOP`) and slice angle helpers (`sliceStart`, `sliceMid`, `radial`) that world.js and candles.js depend on; each of the 8 slices carries `userData` (`k`, `mid`, `pivot`, `inner`, `heart`, `text`, `berries`) used by picking and animation. The strawberries are the `MOUND` table in cake.js; each berry is parented to the slice it sits on and is scaled away while that slice is read. `js/candles.js` traces digit outlines from the Quicksand font on a canvas (marching squares), extrudes them with a bevel (face and rim are separate material groups), and tags every candle part with `userData.candle` for picking; world.js awaits the font before building them. `js/tex.js` holds every procedural texture. `js/room.js` paints the warm backdrop's bokeh on a canvas inside `#sky`, behind the transparent WebGL canvas; the table's back edge reveals it.
+
+**DOM-based features (not three.js).** `js/unicorn.js` renders the plush as stacked pre-rendered SVG images animated with CSS (`setMood("calm" | "happy")` only toggles the post-wish glow; the face always smiles, never make it sad; he is a boy, so no blush, no lashes, no pink), mirrored with CSS so its tail points away from the cake; it also exports the seeded `rng` that cake.js imports. `js/album.js` is a two-page CSS 3D book seen close up (author rules: photos only on the left pages, one photo per page turn; the stage is the whole spread, positioned by `size()` so the left page is centred and the right page just peeks in at the screen edge; turns must look like flipping a real book) that flies from the table using `world.albumAnchor` (`rect()`, `angle()`, `setVisible()`); swipes are handled on the whole viewer with pointer capture; photo paths and placeholders come from its `thumbSrc` / `fullSrc` / `pastel` exports. `js/lightbox.js` is the full-size viewer, linked to the album through `getSource` and `onBeforeClose`.
+
+**Audio and mic.** `js/audio.js` (Web Audio tune and effects) and `js/blow.js` (mic RMS above a calibrated baseline -> 0..1 level). `audio.ensureAudio()` must be called synchronously inside a user gesture handler (iOS), before `startBlow`.
+
+**Stacking order** (`css/style.css`): `.sky` 0 < `.stage` canvas 2 < `#ov` overlays 4 < message 5 < confetti 6 < action/UI 7 < slice layer and album view 8 < lightbox 9.
+
+**Content.** `js/content.js` is the only file the author edits (all UI strings, messages, photo list, candle number, album title). Counts are validated in main.js with `console.warn` and the page renders anyway.
+
+## Verification quirks
+
+- When the preview pane is hidden, rAF and CSS/Web animations pause, so early screenshots can look half-finished. world.js animations still finish on their timers; take a fresh screenshot or reload before judging.
+- `lowEnd` (4 or fewer cores, or a slow frame check after load) lowers pixel ratio, shadow map size, blur and confetti. Check both paths when touching performance-sensitive code.
+- Check the spec's testing checklist (BUILD_SPEC.md section 12), especially framing at 360x640, 390x844, 430x932, landscape and desktop.

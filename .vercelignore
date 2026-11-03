@@ -1,0 +1,7 @@
+photos-original/
+node_modules/
+scripts/
+dev/
+.claude/
+README.md
+package-lock.json

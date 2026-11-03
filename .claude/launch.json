@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "torta",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-I", "dev/devserver.py", ".", "5174"],
+      "port": 5174
+    }
+  ]
+}

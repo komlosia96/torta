@@ -1,0 +1,6 @@
+photos-original/
+node_modules/
+package-lock.json
+.vercel/
+.DS_Store
+Thumbs.db

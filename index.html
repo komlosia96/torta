@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#4A3632">
+<title>Boldog szülinapot!</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 29C6 21 2 16 2 10.5a7 7 0 0 1 14-2.5a7 7 0 0 1 14 2.5C30 16 26 21 16 29z' fill='%23FFB3D1' stroke='%236B4E71' stroke-width='1.5'/%3E%3C/svg%3E">
+<link rel="preload" href="assets/fonts/quicksand-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/quicksand-latin-ext.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/caveat-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/caveat-latin-ext.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="sky" class="sky" aria-hidden="true"></div>
+<div id="stage" class="stage"></div>
+<div id="ov" class="ov"></div>
+
+<svg id="sayTail" class="say-tail" aria-hidden="true"><path/></svg>
+<p id="say" class="say" aria-live="polite"><span id="sayText"></span><span id="sparkHost" class="spark-host" aria-hidden="true"></span></p>
+
+<main id="app">
+  <p id="allText" class="all-text" hidden></p>
+  <div id="action" class="action">
+    <button id="blowBtn" class="btn-main" type="button"></button>
+    <div id="meter" class="meter" hidden aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <p id="hint" class="hint"></p>
+    <p id="hint2" class="hint small" hidden></p>
+  </div>
+</main>
+
+<canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+<div class="ui">
+  <button id="replayBtn" class="pill replay glass" type="button" hidden></button>
+  <button id="muteBtn" class="icon-btn mute glass" type="button" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spkr" d="M4 9h3l5-4v14l-5-4H4z"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="off" d="M16 9l6 6M22 9l-6 6"/></svg>
+  </button>
+  <p id="soundHint" class="sound-hint glass" hidden></p>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</div>
+
+<div id="sliceLayer" class="overlay slice-layer" hidden></div>
+<div id="lightbox" class="overlay lightbox" hidden role="dialog" aria-modal="true"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Glyph teszt</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html,body{overflow:auto;height:auto}
+  body{padding:16px;background:var(--cream)}
+  .s{font-size:30px;margin:6px 0 18px}
+  .q{font-family:"Quicksand"}
+  .c{font-family:"Caveat"}
+  .b{font-weight:700}
+  #out{font:14px/1.5 monospace;white-space:pre-wrap}
+  .ok{color:#1d7a46}.bad{color:#b3261e}
+</style>
+</head>
+<body>
+<h1 class="q">Hungarian glyph test (dev only)</h1>
+<p class="s q">árvíztűrő tükörfúrógép ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP őűŐŰ</p>
+<p class="s q b">árvíztűrő tükörfúrógép ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP őűŐŰ</p>
+<p class="s c">árvíztűrő tükörfúrógép ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP őűŐŰ</p>
+<p class="s c b">árvíztűrő tükörfúrógép ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP őűŐŰ</p>
+<div id="out">Checking...</div>
+<script>
+// A glyph comes from the web font only if its width is identical with two very different fallback fonts behind it.
+const TEST = "árvíztűrő tükörfúrógép ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP őűŐŰ";
+const chars = [...new Set(TEST.replace(/ /g, ""))];
+(async () => {
+  const faces = [["Quicksand", 400], ["Quicksand", 700], ["Caveat", 400], ["Caveat", 700]];
+  await Promise.all(faces.map(([f, w]) => document.fonts.load(`${w} 40px "${f}"`, TEST)));
+  await document.fonts.ready;
+  const ctx = document.createElement("canvas").getContext("2d");
+  const width = (font, ch) => { ctx.font = font; return ctx.measureText(ch).width; };
+  let lines = [], allOk = true;
+  for (const [f, w] of faces) {
+    const bad = chars.filter(ch => width(`${w} 60px "${f}", monospace`, ch) !== width(`${w} 60px "${f}", serif`, ch));
+    allOk = allOk && !bad.length;
+    lines.push(`<span class="${bad.length ? "bad" : "ok"}">${f} ${w}: ${bad.length ? "FALLBACK for " + bad.join(" ") : "all " + chars.length + " glyphs from the web font"}</span>`);
+  }
+  lines.push(`<b class="${allOk ? "ok" : "bad"}">${allOk ? "PASS" : "FAIL"}</b>`);
+  document.getElementById("out").innerHTML = lines.join("\n");
+  document.title = allOk ? "PASS" : "FAIL";
+})();
+</script>
+</body>
+</html>
