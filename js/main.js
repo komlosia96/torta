@@ -62,7 +62,11 @@ blowBtn.disabled = true;
 
 const world = await createWorld({
   stage: $("stage"), ov: $("ov"), ui: U, messages, number: candleNumber, topper: C.topper == null ? "" : String(C.topper), shirt: C.unicornShirt == null ? "" : String(C.unicornShirt), albumTitle: albumCfg.title || "", reduced, lowEnd,
+  plateNote: C.plateNote || "",
   onSliceTap, onCandleTap, onUnicornTap, onAlbumTap: () => album.open(),
+  onNoteTap: () => { if (state === S.PLAY && !album.isOpen() && !lightbox.isOpen()) showNote(); },
+  // Where the note lies on the table: the middle of the screen, halfway between the album and the text below.
+  noteSpot: () => { const a = world.albumAnchor.rect(), t = $("action").getBoundingClientRect(); return { x: innerWidth / 2, y: (a.top + a.height + t.top) / 2 }; },
 });
 if (!world) {
   hint.textContent = U.noWebgl;
@@ -139,13 +143,21 @@ addEventListener("resize", placeSay);
 placeSay();
 document.fonts.ready.then(placeSay);
 
-// Reading a slice: the 3D view does the animation; this layer adds the close button and tap-to-close.
-sliceLayer.innerHTML = `<button type="button" class="close-btn slice-close">${U.close}</button>`;
-const closeSliceBtn = sliceLayer.firstChild;
+// Reading a slice: the 3D view does the animation; this layer adds the close button and tap-to-close. A tap on
+// the slice itself takes a bite (world.biteSlice); once it is all eaten, only a paper note is left (it then
+// lies on the table, and a tap on it shows it here again).
+sliceLayer.tabIndex = -1;
+sliceLayer.innerHTML = `<div class="scrim"></div><p class="bite-hint">${U.biteHint}</p><div class="plate" aria-live="polite"><p class="plate-note"></p></div>`;
+const plate = sliceLayer.querySelector(".plate");
+plate.querySelector(".plate-note").textContent = C.plateNote || "";
 let sliceKey = null;
 function openSlice(k) {
-  if (world.isSliceOpen()) return;
-  world.openSlice(k);
+  if (world.isSliceOpen() || sliceLayer.classList.contains("open")) return;
+  // Already eaten: its empty place does nothing (author rule); only the note on the table opens.
+  if (world.isEaten(k)) return;
+  sliceLayer.classList.remove("bitten", "eaten", "plate-only", "note3d", "hint-on");
+  // The bite hint only shows once the message is written on the slice (author rule).
+  world.openSlice(k, () => { if (sliceLayer.classList.contains("open")) sliceLayer.classList.add("hint-on"); });
   body.classList.add("reading");
   sliceLayer.setAttribute("role", "dialog");
   sliceLayer.setAttribute("aria-modal", "true");
@@ -153,8 +165,21 @@ function openSlice(k) {
   sliceLayer.hidden = false;
   void sliceLayer.offsetWidth;
   sliceLayer.classList.add("open");
-  closeSliceBtn.focus({ preventScroll: true });
-  sliceKey = e => { if (e.key === "Escape") closeSlice(); else if (e.key === "Tab") { e.preventDefault(); closeSliceBtn.focus(); } };
+  sliceLayer.focus({ preventScroll: true }); // no close button (author rule): a tap anywhere but the slice, or Escape, closes it
+  sliceKey = e => { if (e.key === "Escape") closeSlice(); else if (e.key === "Tab") e.preventDefault(); };
+  document.addEventListener("keydown", sliceKey);
+}
+// The note on its own (tapped on the table, or the eaten slice's place): the paper shows over a blurred, dimmed
+// page, the same scrim as the album view (author rule: nothing disappears, the speech bubble and the text included).
+function showNote() {
+  if (world.isSliceOpen() || sliceLayer.classList.contains("open")) return;
+  sliceLayer.classList.remove("bitten", "note3d");
+  sliceLayer.classList.add("eaten", "plate-only");
+  sliceLayer.hidden = false;
+  void sliceLayer.offsetWidth;
+  sliceLayer.classList.add("open");
+  sliceLayer.focus({ preventScroll: true }); // no close button here: any tap closes
+  sliceKey = e => { if (e.key === "Escape") closeSlice(); };
   document.addEventListener("keydown", sliceKey);
 }
 function closeSlice() {
@@ -162,9 +187,48 @@ function closeSlice() {
   sliceLayer.classList.remove("open");
   body.classList.remove("reading");
   document.removeEventListener("keydown", sliceKey);
-  world.closeSlice(k => { sliceLayer.hidden = true; onSliceClosed(k); });
+  if (!world.isSliceOpen()) { setTimeout(() => { if (!sliceLayer.classList.contains("open")) sliceLayer.hidden = true; }, 750); return; } // only the note was shown: it fades, then the dim lifts (css)
+  // The speech bubble waits until the slice is back and the note has come to rest on the table (author rule).
+  body.classList.add("say-hold");
+  world.closeSlice(k => { sliceLayer.hidden = true; onSliceClosed(k); }, () => body.classList.remove("say-hold"));
 }
-sliceLayer.addEventListener("click", closeSlice);
+sliceLayer.addEventListener("click", e => {
+  if (!sliceLayer.classList.contains("eaten")) {
+    const b = world.biteSlice(e.clientX, e.clientY);
+    if (b) {
+      audio.ensureAudio();
+      audio.nom();
+      sliceLayer.classList.add("bitten");
+      crumbs(e.clientX, e.clientY);
+      // All eaten: the 3D note comes up where the slice was (world.js presentNote), so the DOM paper stays hidden
+      // (note3d) and the note itself is then carried down to the table.
+      if (b.done) {
+        hint.textContent = U.eatenHint; // nothing left to tap on the cake (author rule)
+        later(420, () => { sliceLayer.classList.add("eaten", "note3d"); sliceLayer.focus({ preventScroll: true }); });
+      }
+      return;
+    }
+  }
+  closeSlice();
+});
+// Cake crumbs that fall from a bite.
+function crumbs(x, y) {
+  if (reduced) return;
+  const host = document.createElement("div");
+  host.className = "crumbs";
+  host.style.left = x + "px";
+  host.style.top = y + "px";
+  for (let i = 0; i < 9; i++) {
+    const c = document.createElement("i");
+    c.style.setProperty("--dx", ((Math.random() - 0.5) * 90).toFixed(0) + "px");
+    c.style.setProperty("--dy", (60 + Math.random() * 90).toFixed(0) + "px");
+    c.style.setProperty("--s", (0.6 + Math.random() * 0.9).toFixed(2));
+    c.style.animationDelay = Math.round(Math.random() * 80) + "ms";
+    host.appendChild(c);
+  }
+  sliceLayer.appendChild(host);
+  setTimeout(() => host.remove(), 1300);
+}
 const STAR = '<svg viewBox="-6 -6 12 12"><path d="M0-6L1.5-1.5L6 0L1.5 1.5L0 6L-1.5 1.5L-6 0L-1.5-1.5Z"/></svg>';
 const HEART = '<svg viewBox="-7 -7 14 14"><path d="M0 6.3C-8.75.7-7.7-6.65 0-2.45C7.7-6.65 8.75.7 0 6.3Z"/></svg>';
 const SPARK_COLORS = ["#FFD39A", "#F6B8C4", "#FFF1D6", "#E9B44C", "#F7C9A9"];
@@ -316,7 +380,7 @@ function toPlay() {
   state = S.PLAY;
   cake.setLocked(false);
   cake.shimmer();
-  hint.textContent = U.afterHint;
+  hint.textContent = world.isEaten(0) ? U.eatenHint : U.afterHint;
 }
 
 function onSliceTap(k) {
@@ -370,8 +434,8 @@ function reset() {
   fireworks.clear();
   cake.closeSliceNow();
   sliceLayer.hidden = true;
-  sliceLayer.classList.remove("open");
-  body.classList.remove("reading");
+  sliceLayer.classList.remove("open", "bitten", "eaten", "plate-only", "note3d", "hint-on");
+  body.classList.remove("reading", "say-hold");
   if (sliceKey) document.removeEventListener("keydown", sliceKey);
   state = S.WISH;
   cake.relightAll();

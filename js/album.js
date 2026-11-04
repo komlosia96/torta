@@ -41,6 +41,9 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   // The back cover, leaves[n + 1]: it looks just like the board under the last page and only ever turns when
   // the book is closed from the back (forward from the last photo).
   leavesHtml += `<div class="leaf back-cover"><div class="bf front leather"><div class="endpaper right"></div></div><div class="bf back leather"><div class="stitch"></div></div></div>`;
+  // The closed book as a real 3D box (both covers, the spine and the page edges), used to turn the book over
+  // after it is closed from the back, so its thickness shows all the way round.
+  const boxHtml = `<div class="bk-closed"><div class="bc bc-front leather"><div class="stitch"></div><div class="emboss">${esc(title)}</div></div><div class="bc bc-back leather"><div class="stitch"></div></div><div class="bc bc-spine leather"></div><div class="bc bc-fore"></div><div class="bc bc-top"></div><div class="bc bc-bot"></div></div>`;
 
   const view = document.createElement("div");
   view.className = "overlay album-view";
@@ -48,7 +51,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   view.setAttribute("role", "dialog");
   view.setAttribute("aria-modal", "true");
   view.setAttribute("aria-label", ui.albumAria);
-  view.innerHTML = `<div class="scrim"></div><div class="bk-stage"><div class="bk-book closed"><div class="bk-back leather"><div class="endpaper right"></div></div><div class="bk-pages l"></div><div class="bk-pages r"></div>${leavesHtml}</div></div>
+  view.innerHTML = `<div class="scrim"></div><div class="bk-stage"><div class="bk-book closed"><div class="bk-edges"></div><div class="bk-back leather"><div class="endpaper right"></div></div><div class="bk-pages l"></div><div class="bk-pages r"></div>${leavesHtml}${boxHtml}</div></div>
 <div class="lb-ui"><div class="lb-nav"><button type="button" class="lb-arrow prev" aria-label="${esc(ui.prevPage)}">&#8249;</button><span class="lb-count" aria-live="polite"></span><button type="button" class="lb-arrow next" aria-label="${esc(ui.nextPage)}">&#8250;</button></div></div>`;
   document.body.appendChild(view);
   view.style.setProperty("--leather", `url("${LEATHER_TILE}")`);
@@ -56,7 +59,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
 
   const q = s => view.querySelector(s);
   const stage = q(".bk-stage"), book = q(".bk-book"), leaves = [...view.querySelectorAll(".leaf")];
-  const blockL = q(".bk-pages.l"), blockR = q(".bk-pages.r");
+  const blockL = q(".bk-pages.l"), blockR = q(".bk-pages.r"), box = q(".bk-closed");
   // No close button (author request): a tap next to the book, Escape, or turning past the last photo closes it.
   const btnPrev = q(".prev"), btnNext = q(".next"), count = q(".lb-count");
   const focusables = [btnPrev, btnNext];
@@ -69,6 +72,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     const vw = innerWidth, vh = innerHeight, pw = Math.min(vw * 0.8, 440, (vh * 0.64) / 1.36), ph = pw * 1.36;
     const side = (vw - pw) / 2, shift = Math.max(0, Math.min(vw * 0.17 - side, side - 16));
     Object.assign(stage.style, { width: 2 * pw + "px", height: ph + "px", fontSize: pw * 0.06 + "px", left: side - pw + shift + "px", top: (vh - ph) / 2 - vh * 0.035 + "px" });
+    stage.style.setProperty("--d", Math.round(pw * 0.08) + "px"); // the closed book's thickness
   }
 
   // Page edges on the outer side and the bottom of a page block, a pixel per layer, alternating light and shade.
@@ -178,12 +182,15 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     stage.getAnimations().forEach(a => a.cancel()); // never let an earlier fly-back hold the book small and faded
     settle();
     size();
+    box.getAnimations().forEach(a => a.cancel());
+    book.classList.remove("from-back", "as-box");
     jump(0); // always opens on photo 1
     view.hidden = false;
     void view.offsetWidth;
     view.classList.add("open");
     anchor.setVisible(false);
-    const kf = reduced ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: flyTransform(), opacity: 0.7 }, { transform: "none", opacity: 1 }];
+    // Solid all the way (a see-through book looked like an empty cover with no pages).
+    const kf = reduced ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: flyTransform() }, { transform: "none" }];
     stage.animate(kf, { duration: reduced ? 200 : 560, easing: "cubic-bezier(.3,.7,.2,1)" });
     // Open the cover: photo 1 is on its inside.
     turnTimers.push(setTimeout(() => { busy = false; go(FIRST); }, reduced ? 220 : 620));
@@ -215,34 +222,31 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     f = n + 2;
     render();
     turnTimers.push(setTimeout(() => { back.dataset.seq = ++seq; render(); }, 307));
-    // Then the closed book (back up, on the left half, mostly off a phone screen) is turned over on its spine
-    // towards the viewer: edge-on at the midpoint, where it swaps to the closed book lying front up on the
-    // right half, which is where the book always is when closed, in the middle of the screen.
-    const P = "perspective(1800px) ", T = 300, ease = { duration: T, fill: "forwards" };
-    const onSpine = a => `${P}translateX(${-pw / 2}px) rotateY(${a}deg) translateX(${pw / 2}px)`; // origin is the right half's centre
-    let flip = null;
+    // Once the back cover has landed, the closed book (back up, on the left half) becomes the 3D box and turns
+    // over on its spine towards the viewer in one smooth motion (one ease, transform only, so it runs on the
+    // compositor), lifting a little at the middle; it ends front up, still tilted a few degrees so its real spine,
+    // fore-edge and bottom pages stay in view, and flies back to the table from there.
     turnTimers.push(setTimeout(() => {
       [back, last].forEach(el => el.classList.remove("turning")); // not settle(): it would cancel the steps below
       render();
-      flip = stage.animate([{ transform: onSpine(0) }, { transform: onSpine(90) }], { ...ease, easing: "cubic-bezier(.4,0,1,1)" });
+      book.classList.add("as-box");
+      box.animate([
+        { transform: "translateZ(0px) rotateX(0deg) rotateY(-180deg)" },
+        { transform: `translateZ(${Math.round(pw * 0.22)}px) rotateX(8deg) rotateY(-99deg)`, offset: 0.5 },
+        { transform: "translateZ(0px) rotateX(15deg) rotateY(-19deg)" },
+      ], { duration: 1200, easing: "cubic-bezier(.42,0,.32,1)", fill: "forwards" });
     }, 880));
-    turnTimers.push(setTimeout(() => {
-      if (flip) flip.cancel();
-      book.classList.remove("from-back");
-      jump(0);
-      flip = stage.animate([{ transform: onSpine(-90) }, { transform: onSpine(0) }], { ...ease, easing: "cubic-bezier(0,0,.6,1)" });
-    }, 880 + T));
-    turnTimers.push(setTimeout(() => {
-      if (flip) flip.cancel();
-      flyBack("none");
-    }, 880 + 2 * T + 80));
+    turnTimers.push(setTimeout(() => flyBack("none"), 880 + 1200 + 150));
   }
 
   // The closed book flies back to the table (from `from`, the transform it is shown at), then the viewer hides.
   function flyBack(from) {
     view.classList.remove("open");
-    const kf = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: from, opacity: 1 }, { transform: flyTransform(), opacity: 0.7 }];
+    // It stays solid while it flies (see-through, it looked like an empty cover with no pages); the book on the
+    // table shows again just before it lands, so it only fades over its own copy in the last moment.
+    const kf = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: from, opacity: 1 }, { opacity: 1, offset: 0.85 }, { transform: flyTransform(), opacity: 0 }];
     let fly = null;
+    if (!reduced) setTimeout(() => { if (isOpen) anchor.setVisible(true); }, 380);
     const done = () => {
       if (!isOpen) return;
       view.hidden = true;

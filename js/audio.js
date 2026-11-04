@@ -121,6 +121,11 @@ function blip(type, f0, f1, dur, vol) {
 }
 export const pop = () => blip("triangle", 720, 180, 0.1, 0.55);
 export const squeak = () => blip("sine", 950, 1700, 0.14, 0.4);
+// A bite of cake: a soft, low "nom nom".
+export function nom() {
+  blip("triangle", 300, 150, 0.09, 0.5);
+  setTimeout(() => blip("triangle", 260, 130, 0.08, 0.42), 120);
+}
 // A blown kiss: a soft rising "mwa" and the little smack at its end.
 export function kiss() {
   blip("sine", 360, 780, 0.17, 0.32);

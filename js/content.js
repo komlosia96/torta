@@ -16,8 +16,11 @@ export const CONTENT = {
     blowButton: "Kattints ide!",
     // shown once the button is tapped, while the microphone listens ("\n" starts a new line)
     blowHint: "Kívánj valamit és fújj a telefon aljára!\nNem működik? Akkor koppints a gyertyákra!",
-    afterHint: "Koppints a szeletre, nyisd ki az albumot vagy bökdösd Ákost, hogy csináljon valamit.",
+    afterHint: "Koppints a szeletre, nyisd ki az albumot vagy bökdösd Ákost, hogy csináljon valamit!",
+    // the same once the slice is eaten (nothing left to tap on the cake)
+    eatenHint: "Nyisd ki az albumot vagy bökdösd Ákost, hogy csináljon valamit!",
     // Every third tap on Ákos after the wish he asks this; "Igen" starts his concert.
+    biteHint: "Kattints a szeletre, hogy megedd!", // under the slice while it is read
     singAsk: "Szeretnéd, hogy énekeljek?",
     singYes: "Igen",
     singNo: "Nem",
@@ -48,6 +51,10 @@ export const CONTENT = {
   sliceMessages: [
     "Szeretlek és hiányzol :((",
   ],
+
+  // The paper note left once the slice is all eaten (each tap on the slice while it is read takes a bite); it then
+  // lies on the table and a tap shows it again. Write your own, up to about two short lines.
+  plateNote: "Látod én is sütöttem neked tortát!",
 
   // Shown near the cake after the slice was opened. Empty string means disabled.
   allSlicesText: "",

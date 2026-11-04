@@ -248,6 +248,40 @@ export function signTex(text, W = 512, H = 256) {
   return toTex(c);
 }
 
+// The little paper note left after the slice is eaten (it lies on the table): warm paper with faint lines and a
+// fold, the text handwritten in up to two lines. Drawn at k times the size (laid out in W x H units), because it
+// is first shown close up, as big as the screen allows, before it is put down on the table.
+export function noteTex(text, W = 512, H = 320, k = 2) {
+  const [c, ctx] = canvas(W * k, H * k);
+  ctx.scale(k, k);
+  ctx.fillStyle = "#FFFBF2"; ctx.fillRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, "rgba(255,255,255,.6)"); g.addColorStop(1, "rgba(190,160,120,.22)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(120,150,200,.22)"; ctx.lineWidth = 2;
+  for (let y = H * 0.3; y < H * 0.95; y += H * 0.17) { ctx.beginPath(); ctx.moveTo(W * 0.06, y); ctx.lineTo(W * 0.94, y); ctx.stroke(); }
+  const fold = ctx.createLinearGradient(W * 0.5 - 14, 0, W * 0.5 + 14, 0);
+  fold.addColorStop(0, "rgba(150,120,90,0)"); fold.addColorStop(0.5, "rgba(150,120,90,.16)"); fold.addColorStop(1, "rgba(150,120,90,0)");
+  ctx.fillStyle = fold; ctx.fillRect(W * 0.5 - 14, 0, 28, H);
+  const fam = '"Caveat","Patrick Hand",cursive', words = String(text).split(/\s+/).filter(Boolean);
+  let size = 120, lines = [String(text)];
+  const fit = () => {
+    ctx.font = `700 ${size}px ${fam}`;
+    if (ctx.measureText(String(text)).width <= W * 0.84) return [String(text)];
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
+      if (Math.max(ctx.measureText(a).width, ctx.measureText(b).width) <= W * 0.84) return [a, b];
+    }
+    return null;
+  };
+  while (size > 30 && !(lines = fit())) size -= 4;
+  if (!lines) lines = [String(text)];
+  ctx.font = `700 ${size}px ${fam}`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#4A3A45";
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * size * 1.05));
+  return toTex(c);
+}
+
 export function icingText(text, W, H, widthAt) {
   const [c, ctx] = canvas(W, H);
   const fam = '"Caveat","Patrick Hand",cursive';
