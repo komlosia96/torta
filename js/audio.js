@@ -78,6 +78,24 @@ export function ensureAudio() {
 
 export const isRunning = () => !!ctx && ctx.state === "running";
 
+// Plays an <audio> element through Web Audio at a gain of its own: an element's own volume stops at 1 (and iOS
+// ignores it), so this is the only way to make it louder than it was recorded. Used for Ákos's concert song,
+// which is quieter than the birthday song. Call inside a tap (it may create the AudioContext); false if it can't.
+const boosted = new WeakMap();
+export function boost(el, gain) {
+  if (!ensureAudio()) return false;
+  if (!boosted.has(el)) {
+    try {
+      const src = ctx.createMediaElementSource(el), g = ctx.createGain();
+      src.connect(g);
+      g.connect(ctx.destination);
+      boosted.set(el, g);
+    } catch (e) { return false; }
+  }
+  boosted.get(el).gain.value = gain;
+  return true;
+}
+
 function startSong() {
   if (source) { try { source.stop(); } catch (e) { /* already stopped */ } source.disconnect(); }
   source = ctx.createBufferSource();

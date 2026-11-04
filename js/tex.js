@@ -320,9 +320,12 @@ export function icingText(text, W, H, widthAt) {
 }
 
 // When each pixel of the icing text gets written (world.js reveals it as if piped with cream): letter after letter
-// through the sentence, line by line, each letter drawn from its left to its right. The time (0..1) is stored in
-// two channels, red the coarse part and green the fine part, so it stays smooth for a long message; it is linear
-// in the channels, so the texture's own filtering keeps it right. Spaces take a short pause, not a letter's time.
+// through the sentence, line by line, and each letter drawn along its own strokes, the way a pen moves: from the
+// letter's leftmost point the ink spreads only through the ink itself (a walk over the letter's painted pixels), so
+// a curve fills in going round it, not as a straight wipe; a part not joined to the rest (an accent, the dot of a
+// colon) is added after it, as if the pen were lifted. The time (0..1) is stored in two channels, red the coarse
+// part and green the fine part, so it stays smooth for a long message; it is linear in the channels, so the
+// texture's own filtering keeps it right. Spaces take a short pause, not a letter's time.
 function revealMap(tctx, lines, W, H) {
   const [c, ctx] = canvas(W, H), cols = [];
   const weight = ch => (/\s/.test(ch) ? 0.45 : /[.,:;!?()]/.test(ch) ? 0.7 : 1);
@@ -343,14 +346,41 @@ function revealMap(tctx, lines, W, H) {
     });
     t += 0.6;
   });
+  const alpha = tctx.getImageData(0, 0, W, H).data, N = W * H, val = new Float32Array(N), dist = new Int32Array(N).fill(-1);
+  const ink = new Uint8Array(N), queue = new Int32Array(N);
+  for (let i = 0; i < N; i++) ink[i] = alpha[i * 4 + 3] > 8 ? 1 : 0;
+  let tail = 0;
   for (const [from, to, a, b, t0, t1, top, bot] of cols) {
-    for (let x = Math.floor(from); x < Math.ceil(to); x++) {
-      const v = Math.min(0.9999, t0 + (t1 - t0) * Math.min(1, Math.max(0, (x + 0.5 - a) / Math.max(1, b - a))));
-      const r = Math.floor(v * 255), g = Math.floor((v * 255 - r) * 255);
-      ctx.fillStyle = `rgb(${r},${g},0)`;
-      ctx.fillRect(x, top, 1, bot - top);
+    const x0 = Math.max(0, Math.floor(from)), x1 = Math.min(W, Math.ceil(to)), y0 = Math.max(0, Math.floor(top)), y1 = Math.min(H, Math.ceil(bot));
+    // Off the ink (the soft rim around it) a plain left to right wipe, so it never shows before its letter.
+    for (let x = x0; x < x1; x++) {
+      const v = t0 + (t1 - t0) * Math.min(1, Math.max(0, (x + 0.5 - a) / Math.max(1, b - a)));
+      for (let y = y0, i = y0 * W + x; y < y1; y++, i += W) if (dist[i] < 0) val[i] = v;
     }
+    // On the ink: steps from where the pen sets down, through the ink only; then the next part not reached yet.
+    const start = tail;
+    let far = 0, head = tail;
+    for (let x = x0; x < x1; x++) for (let y = y0, s0 = y0 * W + x; y < y1; y++, s0 += W) {
+      if (!ink[s0] || dist[s0] >= 0) continue;
+      dist[s0] = tail > start ? far + 6 : 0; // a short lift of the pen before a new part
+      queue[tail++] = s0;
+      while (head < tail) {
+        const q = queue[head++], qy = (q / W) | 0, qx = q - qy * W, d = dist[q] + 1;
+        if (d - 1 > far) far = d - 1;
+        for (let ny = Math.max(y0, qy - 1); ny <= Math.min(y1 - 1, qy + 1); ny++) for (let nx = Math.max(x0, qx - 1); nx <= Math.min(x1 - 1, qx + 1); nx++) {
+          const n = ny * W + nx;
+          if (ink[n] && dist[n] < 0) { dist[n] = d; queue[tail++] = n; }
+        }
+      }
+    }
+    for (let j = start; j < tail; j++) val[queue[j]] = t0 + ((t1 - t0) * dist[queue[j]]) / (far + 1);
   }
+  const img = ctx.createImageData(W, H), d = img.data;
+  for (let i = 0; i < W * H; i++) {
+    const v = Math.min(0.9999, Math.max(0, val[i])), r = Math.floor(v * 255);
+    d[i * 4] = r; d[i * 4 + 1] = Math.floor((v * 255 - r) * 255); d[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(c); // plain data, no colour space
   tex.letters = total;
   return tex;

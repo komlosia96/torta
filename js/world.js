@@ -479,8 +479,8 @@ export async function createWorld(o) {
     map.anisotropy = aniso;
     const mat = new THREE.MeshStandardMaterial({ map, transparent: true, roughness: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
     // Written out like piped cream: each pixel shows once the pen has reached it (tex.js revealMap), letter by
-    // letter through the sentence; the pen's tip is a little soft. uReveal runs 0 to 1, 2 is all written.
-    const rv = map.userData.reveal, soft = 0.45 / rv.letters, revealU = { uReveal: { value: 2 }, uRevealMap: { value: rv } };
+    // letter through the sentence, each drawn along its strokes; the pen's tip is a little soft. uReveal runs 0 to 1, 2 is all written.
+    const rv = map.userData.reveal, soft = 0.2 / rv.letters, revealU = { uReveal: { value: 2 }, uRevealMap: { value: rv } };
     mat.customProgramCacheKey = () => "icing";
     mat.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, revealU);
@@ -540,8 +540,8 @@ export async function createWorld(o) {
       if (seq !== openSeq) return;
       arriving = false;
       if (reduced || again) { if (written) written(); return; }
-      // Written out letter by letter through the sentence, at a steady pen's pace.
-      const ms = Math.min(3600, Math.max(1400, txt.userData.letters * 95)), end = 1 + 0.5 / txt.userData.letters;
+      // Drawn letter by letter through the sentence, at a steady pen's pace.
+      const ms = Math.min(4500, Math.max(1800, txt.userData.letters * 150)), end = 1 + 0.5 / txt.userData.letters;
       animate(ms, t => { if (seq === openSeq) txt.userData.reveal.value = t * end; }, () => { if (seq !== openSeq) return; txt.userData.reveal.value = 2; if (written) written(); });
     });
   }
@@ -909,6 +909,11 @@ export async function createWorld(o) {
   }
 
   addEventListener("resize", fit);
+  // The message on the slice (and the map of how it is drawn, tex.js revealMap) is made ahead, a moment after
+  // the page has settled and once its font is in: made when the slice opened, it stalled the slice on its way.
+  const msgs = FRONT.map(k => (messages && messages[FRONT.indexOf(k)]) || "").join(" ");
+  Promise.race([document.fonts.load('700 100px "Caveat"', msgs || "a").catch(() => {}), new Promise(r => setTimeout(r, 3000))])
+    .then(() => setTimeout(() => FRONT.forEach(k => { if (!cake.slices[k].userData.text) textMesh(k); }), 1200));
   fit();
   canvas.classList.add("ready");
 

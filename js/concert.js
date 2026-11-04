@@ -2,6 +2,7 @@
 // raises a microphone and sings the author's song. Only that song plays (the birthday song and effects are held
 // silent), nothing can be touched, and when the song ends everything goes back to how it was.
 const SONG_URL = "assets/audio/concert.mp3?v=1";
+const SONG_GAIN = 1.21; // louder than recorded, twice 10% (author: it was quieter than the birthday song), see audio.boost
 const NOTE = '<svg viewBox="0 0 18 24"><path d="M7 3.5 17 1v14.6a3.6 3 0 1 1-2-2.6V5.6L9 7.1v11.5a3.6 3 0 1 1-2-2.6z"/></svg>';
 
 export function createConcert({ unicorn, audio, reduced, onStart, onEnd }) {
@@ -50,6 +51,7 @@ export function createConcert({ unicorn, audio, reduced, onStart, onEnd }) {
     active = true;
     try { song.currentTime = 0; } catch (e) { /* not seekable yet: it starts from the beginning anyway */ }
     song.muted = audio.isMuted();
+    audio.boost(song, SONG_GAIN);
     const p = song.play();
     if (p && p.catch) p.catch(() => finish());
     armGuard(60000);
