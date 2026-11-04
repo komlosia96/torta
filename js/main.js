@@ -105,9 +105,17 @@ function askToSing() {
   if (state !== S.PLAY || concert.isActive() || album.isOpen() || lightbox.isOpen() || world.isSliceOpen()) return;
   concert.prepare();
   ask.hidden = false;
+  placeAsk();
   void ask.offsetWidth;
   ask.classList.add("open");
   askYes.focus({ preventScroll: true });
+}
+// The card sits well above his head (author rule): she keeps tapping him, and a tap meant for him must never
+// land on "Nem". Centred if that is high enough already, never above the round buttons at the top.
+function placeAsk() {
+  const card = ask.querySelector(".ask-card"), h = world.unicornHead(), ch = card.offsetHeight;
+  const top = Math.max(76, Math.min((innerHeight - ch) / 2, h.y - h.r * 2.3 - 28 - ch));
+  card.style.marginTop = top + "px";
 }
 function closeAsk() {
   ask.classList.remove("open");
@@ -115,7 +123,9 @@ function closeAsk() {
 }
 askYes.addEventListener("click", () => { closeAsk(); uniTaps = 0; concert.start(); }); // inside the tap: iOS lets the song start
 askNo.addEventListener("click", () => { closeAsk(); uniTaps = 0; });
-ask.addEventListener("click", e => { if (e.target === ask) { closeAsk(); uniTaps = 0; } }); // a tap beside the card is a no
+// A tap beside the card is a no, except on Ákos himself: tapping him again must not answer it.
+const onUnicorn = e => { const r = document.querySelector(".uni-host").getBoundingClientRect(); return e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom; };
+ask.addEventListener("click", e => { if (e.target === ask && !onUnicorn(e)) { closeAsk(); uniTaps = 0; } });
 ask.addEventListener("keydown", e => { if (e.key === "Escape") { closeAsk(); uniTaps = 0; } });
 
 // The unicorn's speech bubble sits just above its head (or above the candle flames when it would cover
@@ -175,6 +185,12 @@ function showNote() {
   if (world.isSliceOpen() || sliceLayer.classList.contains("open")) return;
   sliceLayer.classList.remove("bitten", "note3d");
   sliceLayer.classList.add("eaten", "plate-only");
+  // The same note as the one first held up (author rule): the 3D view draws it as it was then, at this size.
+  const paper = world.noteImage();
+  paper.className = "plate-paper";
+  plate.querySelector(".plate-paper")?.remove();
+  plate.appendChild(paper);
+  plate.classList.add("paper");
   sliceLayer.hidden = false;
   void sliceLayer.offsetWidth;
   sliceLayer.classList.add("open");

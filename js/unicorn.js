@@ -192,6 +192,12 @@ export function createUnicorn(host, { label, onTap, seat, frame, scale = 1, shir
   inline("u-mouth", [-5, -64.5, 10, 9], "-5 -4.5 10 9", MOUTH);
   inline("u-spark", [-7, -135, 14, 14], "-7 -7 14 14", `<path d="${star4(0, 0, 6)}" fill="#FFF6D8" stroke="#E9B44C" stroke-width=".6"/>`);
   inline("u-heart", [11, -126, 14, 14], "-7 -7 14 14", `<path d="${heartPath(0, 0, 5.5)}" fill="#F27A9A" stroke="#fff" stroke-width=".9"/>`);
+  // A tap anywhere on him counts (author rule), not only on the head: his outline traced in invisible shapes
+  // (head with ears and horn, mane, body, legs and feet, tail), so the gaps around him still reach the cake.
+  inline("u-hit", [-96, -136, 150, 144], "-96 -136 150 144", ['<ellipse cx="0" cy="-86" rx="30" ry="44"/>', '<ellipse cx="-32" cy="-84" rx="30" ry="44"/>',
+    '<path d="M-16-58C-32-52-37-22-29-4Q0 4 29-4C37-22 32-52 16-58Z"/>', '<ellipse cx="0" cy="-10" rx="44" ry="15"/>',
+    '<ellipse cx="-50" cy="-22" rx="28" ry="17"/>', '<ellipse cx="-66" cy="-32" rx="16" ry="14"/>'].join("").replace(/\/>/g, ' fill="transparent" pointer-events="visiblePainted"/>'));
+  b.lastElementChild.addEventListener("click", e => { if (e.target !== e.currentTarget) onTap(); });
   b.insertAdjacentHTML("beforeend", `<button type="button" class="u u-head" aria-label="${label}"></button>`);
   const head = place(b.lastElementChild, [-30, -108, 60, 60]), heart = b.querySelector(".u-heart");
   head.addEventListener("click", () => onTap());

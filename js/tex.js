@@ -306,15 +306,52 @@ export function icingText(text, W, H, widthAt) {
   // Nudge the block toward the middle when it still fits there (lines are re-measured at their real height).
   const centred = layout(size, (H - L.height) * 0.35);
   if (centred) L = centred;
-  const off = 0;
   ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
   for (const [line, y] of L.lines) {
-    const yy = y + off;
-    ctx.fillStyle = "rgba(90,20,35,.35)"; ctx.fillText(line, W / 2 + 2, yy + 4);
-    ctx.lineWidth = size * 0.07; ctx.strokeStyle = "#9E2F48"; ctx.strokeText(line, W / 2, yy);
-    ctx.fillStyle = "#C8455F"; ctx.fillText(line, W / 2, yy);
-    ctx.fillStyle = "rgba(255,225,230,.55)"; ctx.fillText(line, W / 2 - 1.5, yy - 2);
-    ctx.fillStyle = "#C8455F"; ctx.fillText(line, W / 2 + 0.5, yy + 0.5);
+    ctx.fillStyle = "rgba(90,20,35,.35)"; ctx.fillText(line, W / 2 + 2, y + 4);
+    ctx.lineWidth = size * 0.07; ctx.strokeStyle = "#9E2F48"; ctx.strokeText(line, W / 2, y);
+    ctx.fillStyle = "#C8455F"; ctx.fillText(line, W / 2, y);
+    ctx.fillStyle = "rgba(255,225,230,.55)"; ctx.fillText(line, W / 2 - 1.5, y - 2);
+    ctx.fillStyle = "#C8455F"; ctx.fillText(line, W / 2 + 0.5, y + 0.5);
   }
-  return toTex(c);
+  const tex = toTex(c);
+  tex.userData.reveal = revealMap(ctx, L.lines, W, H);
+  return tex;
+}
+
+// When each pixel of the icing text gets written (world.js reveals it as if piped with cream): letter after letter
+// through the sentence, line by line, each letter drawn from its left to its right. The time (0..1) is stored in
+// two channels, red the coarse part and green the fine part, so it stays smooth for a long message; it is linear
+// in the channels, so the texture's own filtering keeps it right. Spaces take a short pause, not a letter's time.
+function revealMap(tctx, lines, W, H) {
+  const [c, ctx] = canvas(W, H), cols = [];
+  const weight = ch => (/\s/.test(ch) ? 0.45 : /[.,:;!?()]/.test(ch) ? 0.7 : 1);
+  let total = 0;
+  for (const [line] of lines) total += [...line].reduce((a, ch) => a + weight(ch), 0) + 0.6; // a breath between lines
+  let t = 0;
+  lines.forEach(([line, y], li) => {
+    const top = li ? (lines[li - 1][1] + y) / 2 : 0, bot = li < lines.length - 1 ? (y + lines[li + 1][1]) / 2 : H;
+    const chars = [...line], x0 = W / 2 - tctx.measureText(line).width / 2;
+    let pre = "", from = 0; // columns left of the line's first letter belong to it
+    chars.forEach((ch, i) => {
+      const a = x0 + tctx.measureText(pre).width;
+      pre += ch;
+      const b = x0 + tctx.measureText(pre).width, w = weight(ch);
+      cols.push([from, i === chars.length - 1 ? W : b, a, b, t / total, (t + w) / total, top, bot]); // and the last one the columns right of it
+      from = b;
+      t += w;
+    });
+    t += 0.6;
+  });
+  for (const [from, to, a, b, t0, t1, top, bot] of cols) {
+    for (let x = Math.floor(from); x < Math.ceil(to); x++) {
+      const v = Math.min(0.9999, t0 + (t1 - t0) * Math.min(1, Math.max(0, (x + 0.5 - a) / Math.max(1, b - a))));
+      const r = Math.floor(v * 255), g = Math.floor((v * 255 - r) * 255);
+      ctx.fillStyle = `rgb(${r},${g},0)`;
+      ctx.fillRect(x, top, 1, bot - top);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c); // plain data, no colour space
+  tex.letters = total;
+  return tex;
 }

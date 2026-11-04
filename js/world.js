@@ -268,6 +268,7 @@ export async function createWorld(o) {
     camera.updateProjectionMatrix();
     placeOverlays();
     placeNote();
+    refitOpen();
     invalidate();
   }
 
@@ -324,7 +325,7 @@ export async function createWorld(o) {
   // The plush is a DOM layer above the canvas, so while a slice is read he stays (author rule: he never goes away)
   // but is dimmed with the room by the scrim's own amount, and whatever is drawn above the dark (layer 1: the
   // slice, the note held up and carried down) has its outline cut out of him, so it stays in front of him.
-  let plushX = 0, plushY = 0, veil = "";
+  let plushX = 0, plushY = 0, veil = "", veilPrev = [];
   const veilV = new THREE.Vector3();
   function hull(p) {
     p.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -351,7 +352,8 @@ export async function createWorld(o) {
     return (s.userData.ext = e);
   }
   function veilPlush() {
-    const pts = [], add = (m, x, y, z) => pts.push(toScreen(veilV.set(x, y, z).applyMatrix4(m)).map((c, i) => c - (i ? plushY : plushX)));
+    let pts = [];
+    const add = (m, x, y, z) => pts.push(toScreen(veilV.set(x, y, z).applyMatrix4(m)));
     if (openK !== -1 && cake.slices[openK].visible) {
       // The slice is an upright prism (its outline seen from above, from its bottom to its top), so its outline on
       // screen is the hull of that outline at both heights: worked out in cake coordinates (the inner group) from
@@ -359,15 +361,28 @@ export async function createWorld(o) {
       const sl = cake.slices[openK], e = sliceExt(sl), m = sl.userData.inner.matrixWorld, ax = radial(sl.userData.mid);
       const n = eatK === openK ? bitesTaken : 0, B = biteU.uBites.value;
       const outside = (x, z, skip) => { for (let i = 0; i < n; i++) { if (i === skip) continue; const dx = x - B[i].x, dz = z - B[i].y; if (Math.hypot(dx, dz) < ragged(B[i].z, i, Math.atan2(dz, dx)) - 1e-3) return false; } return true; };
-      sl.updateMatrixWorld();
-      for (const [y, rr] of [[e.y0, e.rLo], [e.y1, e.rHi]]) {
+      sl.updateWorldMatrix(true, true);
+      // Each edge of what is left (the two cut sides, the rim, the edge of each bite) is walked finely, and where
+      // it goes in or out of a bite (or out of the slice) the exact corner is found by halving: sampled every half
+      // centimetre, those corners were cut off and up to 8 px of a bite's sponge wall showed with him over it.
+      const walk = (f, N, ok) => {
+        let pt = f(0), was = ok(pt), t0 = 0;
+        if (was) add(m, pt[0], pt[1], pt[2]);
+        for (let j = 1; j <= N; j++) {
+          const t1 = j / N, p1 = f(t1), is = ok(p1);
+          if (is !== was) { let a = t0, b = t1; for (let s = 0; s < 14; s++) { const c = (a + b) / 2; if (ok(f(c)) === was) a = c; else b = c; } const q = f(is ? b : a); add(m, q[0], q[1], q[2]); }
+          if (is) add(m, p1[0], p1[1], p1[2]);
+          was = is; t0 = t1;
+        }
+      };
+      // the bite walls run from the very bottom of the cake to its top
+      for (const [y, rr] of [[Math.min(e.y0, Y0), e.rLo], [e.y1, e.rHi]]) {
         const inSector = (x, z) => { const d = Math.hypot(x, z); return d <= rr + 1e-3 && (d < 1e-3 || (x * ax.x + z * ax.z) / d >= HALF - 1e-4); };
-        const keep = (x, z, skip = -1) => { if (outside(x, z, skip)) add(m, x, y, z); };
-        for (const a of [sl.userData.mid - Math.PI / 8, sl.userData.mid + Math.PI / 8]) for (let d = 0; d <= rr + 1e-3; d += rr / 24) keep(Math.cos(a) * d, Math.sin(a) * d);
-        for (let i = 1; i < 16; i++) { const a = sl.userData.mid + (i / 16 - 0.5) * (Math.PI / 4); keep(Math.cos(a) * rr, Math.sin(a) * rr); }
-        for (let i = 0; i < n; i++) for (let j = 0; j < 40; j++) {
-          const th = (j / 40) * Math.PI * 2, q = ragged(B[i].z, i, th), x = B[i].x + q * Math.cos(th), z = B[i].y + q * Math.sin(th);
-          if (inSector(x, z)) keep(x, z, i);
+        const left = p => outside(p[0], p[2], -1);
+        for (const a of [sl.userData.mid - Math.PI / 8, sl.userData.mid + Math.PI / 8]) walk(t => [Math.cos(a) * t * rr, y, Math.sin(a) * t * rr], 64, left);
+        walk(t => { const a = sl.userData.mid + (t - 0.5) * (Math.PI / 4); return [Math.cos(a) * rr, y, Math.sin(a) * rr]; }, 32, left);
+        for (let i = 0; i < n; i++) {
+          walk(t => { const th = t * Math.PI * 2, q = ragged(B[i].z, i, th); return [B[i].x + q * Math.cos(th), y, B[i].y + q * Math.sin(th)]; }, 96, p => inSector(p[0], p[2]) && outside(p[0], p[2], i));
         }
       }
     }
@@ -375,12 +390,23 @@ export async function createWorld(o) {
       note.updateMatrixWorld();
       for (const [x, y] of [[-4.8, -3], [4.8, -3], [4.8, 3], [-4.8, 3]]) add(note.matrixWorld, x, y, 0);
     }
+    // The cut also covers where it all was a frame ago: a phone may show the new frame of the 3D view and the new
+    // cut a frame apart, and a moving slice must not slip behind him for that frame (author rule: he is always
+    // behind it). At rest the two are the same.
+    const now = pts, moved = veilPrev.length !== now.length || now.some((p, i) => Math.abs(p[0] - veilPrev[i][0]) + Math.abs(p[1] - veilPrev[i][1]) > 0.3);
+    pts = pts.length ? pts.concat(veilPrev) : pts;
+    veilPrev = now;
+    if (moved && now.length) setTimeout(invalidate); // once it comes to rest, one more frame trims the cut to it
+    pts = pts.map(([x, y]) => [x - plushX, y - plushY]);
     let clip = "";
     if (pts.length > 2) {
       // A frame round the screen with the outline as a hole: the hole runs the other way round, so it is a hole
       // under either fill rule (no keyword needed, which Safari may not honour everywhere).
       let h = hull(pts);
       if (h.length > 2) {
+        // a pixel and a half wider all round, so the slice's smoothed edge never has him showing along it
+        const cx = h.reduce((a, p) => a + p[0], 0) / h.length, cy = h.reduce((a, p) => a + p[1], 0) / h.length;
+        h = h.map(([x, y]) => { const d = Math.hypot(x - cx, y - cy) || 1; return [x + ((x - cx) / d) * 1.5, y + ((y - cy) / d) * 1.5]; });
         const area = h.reduce((a, p, i) => { const q = h[(i + 1) % h.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0);
         if (area > 0) h = h.reverse(); // the frame below runs clockwise on screen (positive area): the hole the other way
         const F = 4000, hs = h.map(([x, y]) => `${x.toFixed(1)}px ${y.toFixed(1)}px`);
@@ -439,11 +465,10 @@ export async function createWorld(o) {
   });
 
   // ---- slices ----
-  let openK = -1, closing = false;
-  const clip = new THREE.Plane();
+  let openK = -1, closing = false, sliceView = null, arriving = false, openSeq = 0;
   // The berries on a slice step aside while its message is read, and come back when it is put back.
   function setBerries(s, f) {
-    for (const b of s.userData.berries) { b.scale.copy(b.userData.s0).multiplyScalar(Math.max(1e-3, f)); b.visible = f > 0.01; }
+    for (const b of s.userData.berries) { b.scale.copy(b.userData.s0).multiplyScalar(Math.max(1e-3, f)); b.visible = f > 0.01 && !b.userData.eaten; }
   }
   function textMesh(k) {
     const s = cake.slices[k];
@@ -452,7 +477,20 @@ export async function createWorld(o) {
     const W = 1024, Hp = Math.round((W * hgt) / wid);
     const map = TX.icingText((messages && messages[FRONT.indexOf(k)]) || "", W, Hp, t => (2 * (r2 - t * hgt) * Math.tan(Math.PI / 8) * 0.8) / wid);
     map.anisotropy = aniso;
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wid, hgt), new THREE.MeshStandardMaterial({ map, transparent: true, roughness: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+    const mat = new THREE.MeshStandardMaterial({ map, transparent: true, roughness: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+    // Written out like piped cream: each pixel shows once the pen has reached it (tex.js revealMap), letter by
+    // letter through the sentence; the pen's tip is a little soft. uReveal runs 0 to 1, 2 is all written.
+    const rv = map.userData.reveal, soft = 0.45 / rv.letters, revealU = { uReveal: { value: 2 }, uRevealMap: { value: rv } };
+    mat.customProgramCacheKey = () => "icing";
+    mat.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, revealU);
+      sh.fragmentShader = "uniform float uReveal;\nuniform sampler2D uRevealMap;\n" + sh.fragmentShader.replace("#include <map_fragment>", `#include <map_fragment>
+  vec4 rvm = texture2D(uRevealMap, vMapUv);
+  diffuseColor.a *= smoothstep(0.0, ${soft.toFixed(5)}, uReveal - (rvm.r + rvm.g / 255.0));`);
+    };
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wid, hgt), mat);
+    mesh.userData.reveal = revealU.uReveal;
+    mesh.userData.letters = rv.letters;
     const rr = radial(s.userData.mid), t = new THREE.Vector3().crossVectors(rr, Y);
     mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(t, rr, Y));
     mesh.position.copy(rr).multiplyScalar((r1 + r2) / 2).setY(TOP + 0.05);
@@ -462,11 +500,6 @@ export async function createWorld(o) {
     s.userData.inner.add(mesh);
     s.userData.text = mesh;
     return mesh;
-  }
-  function setClip(mesh, p) {
-    mesh.updateMatrixWorld();
-    const n = new THREE.Vector3(1, 0, 0).transformDirection(mesh.matrixWorld).negate();
-    clip.setFromNormalAndCoplanarPoint(n, mesh.localToWorld(new THREE.Vector3(lerp(-0.5, 0.5, p) * mesh.userData.w, 0, 0)));
   }
   function viewPose(k) {
     const rr = radial(cake.slices[k].userData.mid), t = new THREE.Vector3().crossVectors(rr, Y);
@@ -488,25 +521,36 @@ export async function createWorld(o) {
   function openSlice(k, written) {
     if (openK !== -1) return;
     openK = k;
-    const s = cake.slices[k], txt = textMesh(k), lift = liftPose(s), view = viewPose(k), q0 = new THREE.Quaternion();
+    const s = cake.slices[k], txt = textMesh(k), lift = liftPose(s), q0 = new THREE.Quaternion(), seq = ++openSeq;
+    sliceView = viewPose(k); // worked out again by fit() if the screen changes size meanwhile
+    arriving = true;
     s.traverse(m => m.layers.set(1));
     txt.visible = true;
     const again = !!txt.userData.read; // read before: the text is already written on it
-    txt.material.clippingPlanes = reduced || again ? null : [clip];
-    txt.material.needsUpdate = true;
+    txt.userData.reveal.value = reduced || again ? 2 : 0;
     ov.classList.add("slice-open");
     animate(reduced ? 1 : 1050, t => {
+      if (seq !== openSeq) return;
       const e = ease(t);
-      s.position.copy(bez(s.userData.pivot, lift.p, view.p, e));
-      if (e < 0.3) s.quaternion.slerpQuaternions(q0, lift.q, e / 0.3); else s.quaternion.slerpQuaternions(lift.q, view.q, (e - 0.3) / 0.7);
+      s.position.copy(bez(s.userData.pivot, lift.p, sliceView.p, e));
+      if (e < 0.3) s.quaternion.slerpQuaternions(q0, lift.q, e / 0.3); else s.quaternion.slerpQuaternions(lift.q, sliceView.q, (e - 0.3) / 0.7);
       setBerries(s, 1 - smooth(0.12, 0.42, t));
       scrimA = 0.58 * Math.min(1, t * 1.5);
-      if (!reduced && !again) setClip(txt, 0);
     }, () => {
-      if (openK !== k) return;
+      if (seq !== openSeq) return;
+      arriving = false;
       if (reduced || again) { if (written) written(); return; }
-      animate(900, t => setClip(txt, t), () => { txt.material.clippingPlanes = null; txt.material.needsUpdate = true; if (written && openK === k) written(); });
+      // Written out letter by letter through the sentence, at a steady pen's pace.
+      const ms = Math.min(3600, Math.max(1400, txt.userData.letters * 95)), end = 1 + 0.5 / txt.userData.letters;
+      animate(ms, t => { if (seq === openSeq) txt.userData.reveal.value = t * end; }, () => { if (seq !== openSeq) return; txt.userData.reveal.value = 2; if (written) written(); });
     });
+  }
+  // A new size of screen while a slice is read: it moves to its place in the new view (fit() calls this).
+  function refitOpen() {
+    if (openK === -1 || closing) return;
+    sliceView = viewPose(openK);
+    if (!arriving) { const s = cake.slices[openK]; s.position.copy(sliceView.p); s.quaternion.copy(sliceView.q); }
+    if (note && noteHeld) { const { p, q } = notePresentPose(); note.position.copy(p); note.quaternion.copy(q); }
   }
   function finish(k) {
     const s = cake.slices[k];
@@ -520,6 +564,8 @@ export async function createWorld(o) {
     scrimA = 0;
     openK = -1;
     closing = false;
+    arriving = false;
+    openSeq++;
     ov.classList.remove("slice-open");
   }
   // done(k) runs once the slice is back; settled(k) once everything has come to rest, the note included.
@@ -527,7 +573,8 @@ export async function createWorld(o) {
     if (openK === -1 || closing) return;
     closing = true;
     const k = openK, s = cake.slices[k], lift = liftPose(s), p0 = s.position.clone(), q0 = s.quaternion.clone(), qe = new THREE.Quaternion();
-    if (s.userData.text) { s.userData.text.material.clippingPlanes = null; s.userData.text.material.needsUpdate = true; s.userData.text.userData.read = true; }
+    openSeq++; // the slice stops arriving, and the text stops being written: it is all there now
+    if (s.userData.text) { s.userData.text.userData.reveal.value = 2; s.userData.text.userData.read = true; }
     // An eaten slice has nothing left to fly back: the dark lifts quicker and the note starts drifting down at
     // once, in one move with it, instead of after an empty wait.
     const gone = eaten.has(k);
@@ -573,8 +620,11 @@ export async function createWorld(o) {
     const c = m.clone(), inside = wall < 0 && !c.transparent && c.side !== THREE.DoubleSide;
     if (inside) c.side = THREE.DoubleSide;
     if (wall >= 0) { c.side = THREE.FrontSide; c.emissive = new THREE.Color(0xffffff); c.emissiveMap = c.map; c.emissiveIntensity = 0.28; } // inside the bite it is in shade; lifted to match the cut faces
-    c.customProgramCacheKey = () => "bite" + (inside ? "i" : "") + (wall >= 0 ? "w" : "");
-    c.onBeforeCompile = sh => {
+    // A material that already changes its shader (the icing text's reveal) keeps doing so under the bites.
+    const base = m.onBeforeCompile, baseKey = m.customProgramCacheKey.call(m);
+    c.customProgramCacheKey = () => baseKey + "bite" + (inside ? "i" : "") + (wall >= 0 ? "w" : "");
+    c.onBeforeCompile = (sh, r) => {
+      base.call(c, sh, r);
       Object.assign(sh.uniforms, biteU, { uWall: { value: wall } });
       sh.vertexShader = "varying vec3 vBiteW;\n" + sh.vertexShader.replace("#include <project_vertex>", "#include <project_vertex>\n  vBiteW = (modelMatrix * vec4(transformed, 1.0)).xyz;");
       sh.fragmentShader = "varying vec3 vBiteW;\nuniform vec4 uBites[5];\nuniform int uBiteN;\nuniform int uWall;\nuniform mat4 uToCake;\nuniform vec4 uSlice;\nuniform vec2 uYr;\nuniform vec3 uCrumb;\n" + sh.fragmentShader
@@ -624,7 +674,9 @@ export async function createWorld(o) {
   function syncBites() {
     if (eatK === -1) return;
     const s = cake.slices[eatK], inner = s.userData.inner, rr = radial(s.userData.mid);
-    inner.updateMatrixWorld(true);
+    // From the slice itself down: this frame's move and turn, not last frame's. With last frame's, the bites
+    // trailed behind the moving slice, so it seemed to warp and wobble as it was carried (author: glitchy).
+    inner.updateWorldMatrix(true, false);
     biteU.uToCake.value.copy(inner.matrixWorld).invert();
     biteU.uSlice.value.set(rr.x, rr.z, HALF, R);
     biteU.uBiteN.value = bitesTaken;
@@ -646,6 +698,20 @@ export async function createWorld(o) {
     }
     const i = bitesTaken;
     bitesTaken = Math.min(BITES.length, bitesTaken + 1);
+    // A strawberry the bite reaches is eaten with it: cut in half it looked hollow as it grew back onto the slice.
+    {
+      const c = biteCentre(k, i), reach = BITES[i][2] * 1.08, box = new THREE.Box3(), mid = new THREE.Vector3(), size = new THREE.Vector3();
+      s.updateWorldMatrix(true, true);
+      for (const b of s.userData.berries) {
+        if (b.userData.eaten) continue;
+        const sc = b.scale.clone();
+        b.scale.copy(b.userData.s0); b.updateMatrixWorld(true); // its full size, even while it has stepped aside
+        box.setFromObject(b).getCenter(mid); box.getSize(size);
+        b.scale.copy(sc); b.updateMatrixWorld(true);
+        s.userData.inner.worldToLocal(mid);
+        if (Math.hypot(mid.x - c.x, mid.z - c.z) < reach + 0.45 * Math.max(size.x, size.z) / s.scale.x) { b.userData.eaten = true; b.visible = false; }
+      }
+    }
     const n = bitesTaken, done = n >= BITES.length;
     if (done) {
       eaten.add(k);
@@ -679,7 +745,7 @@ export async function createWorld(o) {
   // making them in the frame it first showed stalled the drop on a phone (author: laggy). Its emissive map (the
   // paper itself, off on the table) lets it read as bright paper while it is held up in front of the dark.
   const NOTE_MS = 1100, NOTE_FLY = 1250, NOTE_RX = -Math.PI / 2 + 0.03, NOTE_GLOW = 0.45;
-  let noteEnd = 0, noteSeq = 0, noteFly = false;
+  let noteEnd = 0, noteSeq = 0, noteFly = false, noteHeld = false; // held: shown up where the slice was, not yet put down
   function makeNote() {
     if (note) return;
     const map = TX.noteTex(o.plateNote || "");
@@ -694,7 +760,7 @@ export async function createWorld(o) {
   }
   // Where the note is first shown, once the last bite is taken: facing the camera where the slice was, as wide
   // as the big note view (main.js .plate: 80% of the width, at most 330 px), its centre 42% down the screen.
-  function notePresentPose() {
+  function notePresentPose(roll = -2) {
     camera.updateMatrixWorld();
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
     const dir = new THREE.Vector3(0, 0.16, 0.5).unproject(camera).sub(camera.position).normalize();
@@ -702,14 +768,45 @@ export async function createWorld(o) {
     const sx = v => v.project(camera).x * 0.5 * innerWidth;
     const c = at(40), w = sx(c.clone().addScaledVector(right, 4.8)) - sx(c.clone().addScaledVector(right, -4.8));
     const p = at((40 * w) / Math.min(innerWidth * 0.8, 330));
-    const q = camera.quaternion.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -2 * DEG));
+    const q = camera.quaternion.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), roll * DEG));
     return { p, q };
+  }
+  // The note as it is first held up, drawn by the 3D view itself into a picture, for the big note view later on
+  // (author rule: it is the same note every time, so it must look exactly the same, not a copy toned to match).
+  // It is drawn level (the page tilts the picture as the 3D note was tilted), alone and over nothing, in the same
+  // light and at the same size and place on screen; then the frame on screen is drawn again, before the page shows.
+  function noteShot() {
+    makeNote();
+    const gl = renderer.getContext();
+    if (gl.isContextLost()) return note.material.map.image;
+    const keep = { v: note.visible, p: note.position.clone(), q: note.quaternion.clone(), s: note.scale.clone(), a: note.material.opacity, g: note.material.emissiveIntensity, l: note.layers.mask, c: note.castShadow };
+    const { p, q } = notePresentPose(0);
+    Object.assign(note, { visible: true, castShadow: false });
+    note.position.copy(p); note.quaternion.copy(q); note.scale.setScalar(1);
+    note.material.opacity = 1; note.material.emissiveIntensity = NOTE_GLOW;
+    note.layers.set(1);
+    note.updateMatrixWorld();
+    const xs = [], ys = [];
+    for (const [x, y] of [[-4.8, -3], [4.8, -3], [4.8, 3], [-4.8, 3]]) { const [sx, sy] = toScreen(note.localToWorld(new THREE.Vector3(x, y, 0))); xs.push(sx); ys.push(sy); }
+    const k = renderer.domElement.width / innerWidth, x0 = Math.min(...xs) * k, y0 = Math.min(...ys) * k, w = (Math.max(...xs) - Math.min(...xs)) * k, h = (Math.max(...ys) - Math.min(...ys)) * k;
+    const out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round(w)); out.height = Math.max(1, Math.round(h));
+    renderer.autoClear = false;
+    renderer.clear();
+    camera.layers.set(1);
+    renderer.render(scene, camera);
+    camera.layers.set(0);
+    out.getContext("2d").drawImage(renderer.domElement, x0, y0, w, h, 0, 0, out.width, out.height);
+    note.visible = keep.v; note.position.copy(keep.p); note.quaternion.copy(keep.q); note.scale.copy(keep.s);
+    note.material.opacity = keep.a; note.material.emissiveIntensity = keep.g; note.layers.mask = keep.l; note.castShadow = keep.c;
+    render();
+    return out;
   }
   // The last bite: the note comes up where the slice was (drawn on layer 1, above the dark, like the slice).
   function presentNote() {
     makeNote();
     const seq = ++noteSeq, { p, q } = notePresentPose();
-    noteFly = true;
+    noteFly = noteHeld = true;
     note.visible = true;
     note.layers.enable(1);
     note.castShadow = false;
@@ -729,6 +826,7 @@ export async function createWorld(o) {
   // turning to lie flat on the way and coming down onto it from just above, slowing to rest; as the dark lifts it
   // stops glowing and casts its shadow, so it ends exactly as the note that then lies there.
   function placeNoteDown() {
+    noteHeld = false;
     const seq = ++noteSeq, p0 = note.position.clone(), q0 = note.quaternion.clone(), s0 = note.scale.x, a0 = note.material.opacity, g0 = note.material.emissiveIntensity;
     const p1 = tableSpot(new THREE.Vector3()), q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(NOTE_RX, 0, 0.06));
     const c = p1.clone().setY(p1.y + 9); // straight above its spot, so it never overshoots it
@@ -755,7 +853,7 @@ export async function createWorld(o) {
     if (!note) return;
     if (on && note.visible) return; // already lying there, or on its way down
     noteSeq++;
-    noteFly = false;
+    noteFly = noteHeld = false;
     note.visible = on;
     note.layers.disable(1);
     note.scale.setScalar(1);
@@ -789,6 +887,7 @@ export async function createWorld(o) {
     cake.slices.forEach(s => {
       s.visible = true;
       s.scale.setScalar(1);
+      s.userData.berries.forEach(b => { b.userData.eaten = false; b.visible = true; });
       s.traverse(m => { if (m.userData.biteMat) { m.material.dispose(); m.material = m.userData.mat0; m.userData.biteMat = false; } });
     });
     showNote(false);
@@ -854,6 +953,8 @@ export async function createWorld(o) {
     // Eating the slice that is being read (see biteSlice); slices addressed by message index outside world.js.
     biteSlice,
     isEaten: i => eaten.has(FRONT[i]),
+    // The note's own paper (its canvas), so the big note view shows exactly the note that lies on the table.
+    noteImage: noteShot,
     // Screen position of the plush's head (for its speech bubble): centre, radius and horn tip.
     unicornHead() {
       const [sx, sy] = toScreen(PLUSH_AT), [ex] = toScreen(PLUSH_AT.clone().add(new THREE.Vector3(10, 0, 0)));
