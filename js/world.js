@@ -725,6 +725,7 @@ export async function createWorld(o) {
     g.computeVertexNormals();
     const w = new THREE.Mesh(g, biteMaterial(mat, i));
     w.userData.k = k;
+    w.userData.bite = i;
     w.layers.set(1);
     cake.slices[k].userData.inner.add(w);
     walls.push(w);
@@ -741,12 +742,37 @@ export async function createWorld(o) {
   }
   // A tap at (x, y) while a slice is read: null if it missed the slice, otherwise { n, done } after taking
   // bite n (done: the slice is all eaten). Every tap on it bites, even while it is still arriving.
+  // Whether a ray hit lands on what is left of the slice (author rule: a tap where the slice used to be, but no
+  // longer is, is not a tap on it). The hit test sees whole meshes, so it is held to the same rules as their
+  // drawing: nothing inside a bite taken, a bite's wall only where it lies inside the slice and outside the other
+  // bites, nothing hidden (the heart, eaten berries), and not the clear corners of the message's plane.
+  const hitP = new THREE.Vector3(), toCake = new THREE.Matrix4();
+  function solidHit(s, h) {
+    for (let o = h.object; o; o = o.parent) if (!o.visible) return false;
+    if (h.object === s.userData.text) return false;
+    const n = eatK === s.userData.k ? bitesTaken : 0, B = biteU.uBites.value, wall = h.object.userData.bite ?? -1;
+    s.userData.inner.updateWorldMatrix(true, false);
+    hitP.copy(h.point).applyMatrix4(toCake.copy(s.userData.inner.matrixWorld).invert());
+    for (let i = 0; i < n; i++) {
+      if (i === wall) continue;
+      const dx = hitP.x - B[i].x, dz = hitP.z - B[i].y;
+      if (Math.hypot(dx, dz) < ragged(B[i].z, i, Math.atan2(dz, dx))) return false;
+    }
+    if (wall >= 0) {
+      const ax = radial(s.userData.mid), r = Math.hypot(hitP.x, hitP.z);
+      if (r > R || (r > 1e-4 && (hitP.x * ax.x + hitP.z * ax.z) / r < HALF) || hitP.y < Y0 || hitP.y > TOP) return false;
+    }
+    return true;
+  }
   function biteSlice(x, y) {
     if (openK === -1 || closing || eaten.has(openK)) return null;
     const k = openK, s = cake.slices[k];
     ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
     biteRay.setFromCamera(ndc, camera);
-    if (!biteRay.intersectObject(s, true).length) return null;
+    if (!biteRay.intersectObject(s, true).some(h => solidHit(s, h))) return null;
+    // Not before the whole message is on it (author rule): a tap on the slice meanwhile does nothing at all.
+    const txt = s.userData.text;
+    if (txt && txt.userData.reveal.value < 2) return { wait: true };
     if (eatK !== k) {
       eatK = k;
       bitesTaken = 0;

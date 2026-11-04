@@ -211,6 +211,7 @@ function closeSlice() {
 sliceLayer.addEventListener("click", e => {
   if (!sliceLayer.classList.contains("eaten")) {
     const b = world.biteSlice(e.clientX, e.clientY);
+    if (b && b.wait) return; // on the slice, but its message is still being written: no bite yet, and it stays open
     if (b) {
       audio.ensureAudio();
       audio.nom();
