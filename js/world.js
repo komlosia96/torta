@@ -1066,6 +1066,17 @@ export async function createWorld(o) {
         return Math.atan2(b[1] - a[1], b[0] - a[0]) / DEG;
       },
       setVisible: v => { book.visible = v; albumBtn.style.visibility = v ? "" : "hidden"; invalidate(); },
+      // How the book lies on screen, for the album to land on it as the same book (album.js landing()): how far
+      // the camera looks down on it (tilt, degrees from straight above), its front edge's screen angle, how tall
+      // its front side shows (px), its thickness to its width, and its middle on screen.
+      view: () => {
+        book.updateWorldMatrix(true, false);
+        const [w, h, d] = BOOK, V = THREE.Vector3;
+        const c = book.localToWorld(new V(0, h / 2, 0)), a = toScreen(book.localToWorld(new V(0, h, d / 2))), b = toScreen(book.localToWorld(new V(0, 0, d / 2)));
+        const l = toScreen(book.localToWorld(new V(-w / 2, h, d / 2))), r = toScreen(book.localToWorld(new V(w / 2, h, d / 2))), m = toScreen(c);
+        const elev = Math.atan2(camera.position.y - c.y, Math.hypot(camera.position.x - c.x, camera.position.z - c.z));
+        return { tilt: 90 - elev / DEG, angle: Math.atan2(r[1] - l[1], r[0] - l[0]) / DEG, edge: Math.hypot(b[0] - a[0], b[1] - a[1]), ratio: h / w, cx: m[0], cy: m[1] };
+      },
       // The covers' pictures as the table shows them now (see makeCoverLook), or null.
       look: () => { if (!coverLook || coverLook.key !== lightKey()) prepCover(); return coverLook && coverLook.key === lightKey() ? coverLook : null; },
     },

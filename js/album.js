@@ -72,8 +72,11 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     const vw = innerWidth, vh = innerHeight, pw = Math.min(vw * 0.8, 440, (vh * 0.64) / 1.36), ph = pw * 1.36;
     const side = (vw - pw) / 2, shift = Math.max(0, Math.min(vw * 0.17 - side, side - 16));
     Object.assign(stage.style, { width: 2 * pw + "px", height: ph + "px", fontSize: pw * 0.06 + "px", left: side - pw + shift + "px", top: (vh - ph) / 2 - vh * 0.035 + "px" });
-    stage.style.setProperty("--d", Math.round(pw * 0.08) + "px"); // the closed book's thickness
+    // The closed book's thickness: the book on the table's own (3 cm on a 15 cm cover), so the two are one book.
+    D = Math.round(pw * (anchor.view ? anchor.view().ratio : 0.08));
+    stage.style.setProperty("--d", D + "px");
   }
+  let D = 0;
 
   // Page edges on the outer side and the bottom of a page block, a pixel per layer, alternating light and shade.
   const edges = (k, dir) => k ? [...Array(k)].map((_, j) => `${dir * (j + 1)}px ${j + 1}px 0 ${j % 2 ? "#CFC1A8" : "#EEE5D4"}`).concat(`0 2px 6px rgba(40,20,5,.3)`).join(",") : "none";
@@ -168,12 +171,26 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     view.classList.remove("no-anim");
   }
 
-  function flyTransform() {
-    // While closed, the cover sits over the right half of the stage (the stage scales around that point).
-    const s = anchor.rect(), d = stage.getBoundingClientRect(), pw = d.width / 2;
-    const scale = (s.width * 0.72) / pw, turn = anchor.angle ? anchor.angle() : -11;
-    return `translate(${(s.left + s.width * 0.5 - (d.left + pw * 1.5)).toFixed(1)}px,${(s.top + s.height * 0.55 - (d.top + d.height / 2)).toFixed(1)}px) rotate(${turn.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+  // The closed book as a 3D box (.bk-closed): turned about its middle (sh 50) or its spine (sh 0), pushed back
+  // by z, tilted and turned. One list of functions throughout, so any two poses blend smoothly.
+  const boxT = (sh, z, rx, ry, rz) => `translateX(${sh}%) translateZ(${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) translateX(${-sh}%)`;
+  // Flat, front up, its front cover just where the flat book's is (so the two can swap unseen).
+  const boxFlat = () => boxT(50, -D / 2, 0, 0, 0);
+  // Where it lies on the table: the box seen the way the camera sees the book there (world.js albumAnchor.view):
+  // tilted back as far as the camera looks down on it and turned in its own plane so its front edge runs as the
+  // table book's does on screen, the stage moved and scaled so it sits on it at its size; the thickness is the
+  // real book's, so the front side shows just as tall. (Flat and face-on, with a few pixels of page edges, it
+  // got visibly thicker the moment the table book took over, author.)
+  function landing() {
+    const d = stage.getBoundingClientRect(), pw = d.width / 2, v = anchor.view(), DEG = Math.PI / 180;
+    const phi = Math.atan(Math.tan(v.angle * DEG) / Math.cos(v.tilt * DEG)) / DEG;
+    const scale = v.edge / (D * Math.sin(v.tilt * DEG));
+    return {
+      stage: `translate(${(v.cx - (d.left + pw * 1.5)).toFixed(1)}px,${(v.cy - (d.top + d.height / 2)).toFixed(1)}px) scale(${scale.toFixed(3)})`,
+      box: boxT(50, -D / 2, v.tilt.toFixed(1), 0, phi.toFixed(1)),
+    };
   }
+  let boxNow = "";
 
   function open() {
     if (isOpen) return;
@@ -197,9 +214,16 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     void view.offsetWidth;
     view.classList.add("open");
     anchor.setVisible(false);
-    // Solid all the way (a see-through book looked like an empty cover with no pages).
-    const kf = reduced ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: flyTransform() }, { transform: "none" }];
-    stage.animate(kf, { duration: reduced ? 200 : 560, easing: "cubic-bezier(.3,.7,.2,1)" });
+    // Solid all the way (a see-through book looked like an empty cover with no pages). It lifts off the table as
+    // the box lying just as the table book does, and becomes the flat book once it is up (the cover opens then).
+    if (reduced) stage.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+    else {
+      const L = landing(), timing = { duration: 560, easing: "cubic-bezier(.3,.7,.2,1)" };
+      book.classList.add("as-box");
+      stage.animate([{ transform: L.stage }, { transform: "none" }], timing);
+      box.animate([{ transform: L.box }, { transform: boxFlat() }], timing);
+      turnTimers.push(setTimeout(() => { book.classList.remove("as-box"); box.getAnimations().forEach(a => a.cancel()); }, 580));
+    }
     // Open the cover: photo 1 is on its inside.
     turnTimers.push(setTimeout(() => { busy = false; go(FIRST); }, reduced ? 220 : 620));
     btnNext.focus({ preventScroll: true });
@@ -238,10 +262,11 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
       [back, last].forEach(el => el.classList.remove("turning")); // not settle(): it would cancel the steps below
       render();
       book.classList.add("as-box");
+      boxNow = boxT(0, 0, 15, -19, 0);
       box.animate([
-        { transform: "translateZ(0px) rotateX(0deg) rotateY(-180deg)" },
-        { transform: `translateZ(${Math.round(pw * 0.22)}px) rotateX(8deg) rotateY(-99deg)`, offset: 0.5 },
-        { transform: "translateZ(0px) rotateX(15deg) rotateY(-19deg)" },
+        { transform: boxT(0, 0, 0, -180, 0) },
+        { transform: boxT(0, Math.round(pw * 0.22), 8, -99, 0), offset: 0.5 },
+        { transform: boxNow },
       ], { duration: 1200, easing: "cubic-bezier(.42,0,.32,1)", fill: "forwards" });
     }, 880));
     turnTimers.push(setTimeout(() => flyBack("none"), 880 + 1200 + 150));
@@ -252,7 +277,14 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     view.classList.remove("open");
     // It stays solid while it flies (see-through, it looked like an empty cover with no pages); the book on the
     // table shows again just before it lands, so it only fades over its own copy in the last moment.
-    const kf = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: from, opacity: 1 }, { opacity: 1, offset: 0.85 }, { transform: flyTransform(), opacity: 0 }];
+    // As the box, which settles onto the table lying just as the book there does (landing()).
+    let kf = [{ opacity: 1 }, { opacity: 0 }], boxFly = null;
+    if (!reduced) {
+      const L = landing(), start = book.classList.contains("as-box") ? boxNow : boxFlat();
+      book.classList.add("as-box");
+      kf = [{ transform: from, opacity: 1 }, { opacity: 1, offset: 0.85 }, { transform: L.stage, opacity: 0 }];
+      boxFly = box.animate([{ transform: start }, { transform: L.box }], { duration: 460, easing: "cubic-bezier(.5,0,.75,.4)", fill: "forwards" });
+    }
     let fly = null;
     if (!reduced) setTimeout(() => { if (isOpen) anchor.setVisible(true); }, 380);
     const done = () => {
@@ -261,6 +293,8 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
       // The fly-back fills forwards so the book does not snap back before it is hidden; drop it once hidden,
       // or it keeps overriding the next opening (small, turned and faded in the corner).
       if (fly) fly.cancel();
+      if (boxFly) box.getAnimations().forEach(a => a.cancel());
+      book.classList.remove("as-box");
       anchor.setVisible(true);
       isOpen = busy = false;
       document.removeEventListener("keydown", onKey);
