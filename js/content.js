@@ -5,7 +5,7 @@ export const CONTENT = {
 
   // The unicorn says this in its speech bubble before the wish...
   intro: {
-    text: "Tudtad, hogy Rutéba nem lehet tortát kiszállítani? :((",
+    text: "Tudtad, hogy Ruteba nem lehet tortát kiszállítani? :((",
   },
   // ...and the same bubble changes to this once the candles are out.
   happy: {
