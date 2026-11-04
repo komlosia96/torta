@@ -992,6 +992,56 @@ export async function createWorld(o) {
     });
   }
 
+  // The album's covers as the book on the table shows them, for the album opened up (album.js): the very same
+  // pictures as the 3D book's (tex.leatherCover with its stitching and title, tex.leather for the rest), toned by
+  // how the room's light shows them on the table, measured from a frame of the 3D view. The page's own leather and
+  // title looked like another book, plainly so as it was put back on the table (author). Measured again once the
+  // lights have changed (setLights); the pictures are JPEG data URLs, so they can be used at once.
+  let coverLook = null;
+  const lightKey = () => light.toFixed(2);
+  function makeCoverLook() {
+    if (renderer.getContext().isContextLost() || !book.visible) return null;
+    const [w, h, d] = BOOK, R0 = screenRect(book), k = renderer.domElement.width / innerWidth;
+    const x0 = Math.max(0, Math.floor(R0.left)), y0 = Math.max(0, Math.floor(R0.top)), cw = Math.ceil(R0.right) - x0, ch = Math.ceil(R0.bottom) - y0;
+    if (cw < 4 || ch < 4) return null;
+    const shot = document.createElement("canvas");
+    shot.width = Math.ceil(cw * k); shot.height = Math.ceil(ch * k);
+    const sx = shot.getContext("2d", { willReadFrequently: true });
+    render();
+    sx.drawImage(renderer.domElement, x0 * k, y0 * k, shot.width, shot.height, 0, 0, shot.width, shot.height); // read in the same task as the frame
+    const px = sx.getImageData(0, 0, shot.width, shot.height).data;
+    // Plain leather on the cover, clear of the stitching, the title and the darker rim: the same places in both.
+    const us = [0.14, 0.18, 0.22, 0.78, 0.82, 0.86], vs = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+    const img = tex.leatherCover.image, ti = (() => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(img, 0, 0); return x.getImageData(0, 0, img.width, img.height).data; })();
+    const got = [0, 0, 0], was = [0, 0, 0], v3p = new THREE.Vector3();
+    let nGot = 0, nWas = 0;
+    book.updateWorldMatrix(true, true);
+    for (const u of us) for (const v of vs) {
+      const [qx, qy] = toScreen(book.localToWorld(v3p.set((u - 0.5) * w, h, (v - 0.5) * d)));
+      const X = Math.round((qx - x0) * k), Y = Math.round((qy - y0) * k);
+      if (X >= 0 && Y >= 0 && X < shot.width && Y < shot.height) { const i = (Y * shot.width + X) * 4; if (px[i + 3] > 200) { for (let c = 0; c < 3; c++) got[c] += px[i + c]; nGot++; } }
+      const j = (Math.round(v * (img.height - 1)) * img.width + Math.round(u * (img.width - 1))) * 4;
+      for (let c = 0; c < 3; c++) was[c] += ti[j + c];
+      nWas++;
+    }
+    render(); // the frame on screen again, before the page shows
+    if (nGot < 8) return null;
+    const gain = got.map((g, c) => (g / nGot) / Math.max(1, was[c] / nWas));
+    const toned = src => {
+      const c = document.createElement("canvas");
+      c.width = src.width; c.height = src.height;
+      const x = c.getContext("2d", { willReadFrequently: true });
+      x.drawImage(src, 0, 0);
+      const im = x.getImageData(0, 0, c.width, c.height), a = im.data;
+      for (let i = 0; i < a.length; i += 4) { a[i] = Math.min(255, a[i] * gain[0]); a[i + 1] = Math.min(255, a[i + 1] * gain[1]); a[i + 2] = Math.min(255, a[i + 2] * gain[2]); }
+      x.putImageData(im, 0, 0);
+      return c.toDataURL("image/jpeg", 0.9);
+    };
+    return { key: lightKey(), cover: toned(img), plain: toned(tex.leather.image) };
+  }
+  function prepCover() { try { const l = makeCoverLook(); if (l) coverLook = l; } catch (e) { /* the album keeps its own leather */ } }
+  setTimeout(prepCover, 2500);
+
   addEventListener("resize", fit);
   // The message on the slice (and the map of how it is drawn, tex.js revealMap) is made ahead, a moment after
   // the page has settled and once its font is in: made when the slice opened, it stalled the slice on its way.
@@ -1016,6 +1066,8 @@ export async function createWorld(o) {
         return Math.atan2(b[1] - a[1], b[0] - a[0]) / DEG;
       },
       setVisible: v => { book.visible = v; albumBtn.style.visibility = v ? "" : "hidden"; invalidate(); },
+      // The covers' pictures as the table shows them now (see makeCoverLook), or null.
+      look: () => { if (!coverLook || coverLook.key !== lightKey()) prepCover(); return coverLook && coverLook.key === lightKey() ? coverLook : null; },
     },
     albumBtn,
     setBlowLevel(l) { C.setLevel(l); invalidate(); },
@@ -1032,7 +1084,7 @@ export async function createWorld(o) {
     setCut,
     setLocked() {},
     shimmer() {},
-    setLights(on) { const from = light, to = on ? 1 : 0; animate(reduced ? 1 : 2200, t => applyLight(lerp(from, to, ease(t)))); },
+    setLights(on) { const from = light, to = on ? 1 : 0; animate(reduced ? 1 : 2200, t => applyLight(lerp(from, to, ease(t))), () => setTimeout(prepCover, 600)); },
     shakeSlice(i) {
       const s = cake.slices[FRONT[i]], inner = s.userData.inner, base = inner.position.clone(), t3 = new THREE.Vector3().crossVectors(radial(s.userData.mid), Y);
       animate(reduced ? 1 : 420, t => inner.position.copy(base).addScaledVector(t3, 0.3 * Math.sin(t * Math.PI * 6) * (1 - t)), () => inner.position.copy(base));

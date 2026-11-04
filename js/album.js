@@ -184,6 +184,14 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     size();
     box.getAnimations().forEach(a => a.cancel());
     book.classList.remove("from-back", "as-box");
+    // The same covers as the book on the table, as its light shows them (world.js makeCoverLook), so the book
+    // that opens and the one put back are one book. Without them it keeps its own leather.
+    const look = anchor.look && anchor.look();
+    if (look) {
+      view.style.setProperty("--cover", `url("${look.cover}")`);
+      view.style.setProperty("--leather", `url("${look.plain}")`);
+    }
+    view.classList.toggle("has-look", !!look);
     jump(0); // always opens on photo 1
     view.hidden = false;
     void view.offsetWidth;
