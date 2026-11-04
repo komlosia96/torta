@@ -306,35 +306,49 @@ export function icingText(text, W, H, widthAt) {
   // Nudge the block toward the middle when it still fits there (lines are re-measured at their real height).
   const centred = layout(size, (H - L.height) * 0.35);
   if (centred) L = centred;
-  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+  // Each letter is drawn on its own (where the whole line would put it), so each letter's ink is known exactly:
+  // the piping (revealMap) draws one letter fully before the next, and in handwriting a letter reaches into its
+  // neighbours (the S's tail under the z, the y's tail back under the n, an accent leaning over), so cutting the
+  // line into columns gave those bits to the wrong letter. Layer by layer, as before: every shadow under every
+  // letter, then the outlines, the cream, the highlight.
+  const glyphs = [];
   for (const [line, y] of L.lines) {
-    ctx.fillStyle = "rgba(90,20,35,.35)"; ctx.fillText(line, W / 2 + 2, y + 4);
-    ctx.lineWidth = size * 0.07; ctx.strokeStyle = "#9E2F48"; ctx.strokeText(line, W / 2, y);
-    ctx.fillStyle = "#C8455F"; ctx.fillText(line, W / 2, y);
-    ctx.fillStyle = "rgba(255,225,230,.55)"; ctx.fillText(line, W / 2 - 1.5, y - 2);
-    ctx.fillStyle = "#C8455F"; ctx.fillText(line, W / 2 + 0.5, y + 0.5);
+    const chars = [...line], x0 = W / 2 - ctx.measureText(line).width / 2;
+    let pre = "", space = false;
+    chars.forEach((ch, i) => {
+      const x = x0 + ctx.measureText(pre).width;
+      pre += ch;
+      if (/\s/.test(ch)) { space = true; return; }
+      glyphs.push({ ch, x, y, space, last: i === chars.length - 1 });
+      space = false;
+    });
   }
-  // The letters' plain shapes, for finding the middle of each stroke (revealMap).
-  const mc = document.createElement("canvas");
-  mc.width = W; mc.height = H;
-  const m = mc.getContext("2d", { willReadFrequently: true }); // read back below: kept in memory, not on the GPU (a slow read on a phone)
-  m.font = ctx.font; m.textAlign = "center"; m.textBaseline = "middle"; m.lineJoin = "round"; m.lineWidth = size * 0.07;
-  for (const [line, y] of L.lines) { m.fillText(line, W / 2, y); m.strokeText(line, W / 2, y); }
+  ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.lineJoin = "round"; ctx.lineWidth = size * 0.07;
+  const layer = (style, dx, dy, stroke) => {
+    ctx[stroke ? "strokeStyle" : "fillStyle"] = style;
+    for (const g of glyphs) ctx[stroke ? "strokeText" : "fillText"](g.ch, g.x + dx, g.y + dy);
+  };
+  layer("rgba(90,20,35,.35)", 2, 4);
+  layer("#9E2F48", 0, 0, true);
+  layer("#C8455F", 0, 0);
+  layer("rgba(255,225,230,.55)", -1.5, -2);
+  layer("#C8455F", 0.5, 0.5);
   const tex = toTex(c);
-  tex.userData.reveal = revealMap(m, L.lines, W, H, size);
+  tex.userData.reveal = revealMap(glyphs, ctx.font, W, H, size);
   return tex;
 }
 
 // When each pixel of the icing text gets piped (world.js reveals it against a moving pen time): one round nozzle
-// moving at a steady speed along the middle of each stroke, letter after letter through the sentence, line by line.
-// The middle lines come from thinning the letters' shapes down to one pixel (Zhang-Suen); each letter's line is
-// then walked like a pen: set down at its leftmost free end, it follows the line, going straight on at a fork, and
-// when the line runs out it lifts and sets down again at the leftmost end not drawn yet (a crossbar, the rest of a
-// loop, an accent). Every pixel of the icing then shows once the pen has passed the nearest point of that line and
-// gone on by as far as the pixel lies from it, so the front of the cream is round like a piping tip. (Before, the
-// letter flooded from its leftmost point through all its ink at once: a wide front that split at every fork and
-// went round both sides of a loop, which read as filling in, not drawing.) The time (0..1) is stored in two
-// channels, red the coarse part and green the fine part; it is linear in them, so texture filtering keeps it right.
+// moving at a steady speed along the middle of each stroke, one letter after another, each finished before the
+// next begins (author rule). Per letter: its own shape is thinned to one-pixel middle lines (Zhang-Suen, short
+// corner twigs pruned) and walked like a pen, set down at the top-left-most free end (where a hand starts most
+// strokes), going straight on at forks, lifting to the next top-left-most end not drawn yet (a crossbar, an
+// accent, the second dot of a colon). Every pixel of the letter then shows at the soonest time the round tip covers
+// it (time at a point of the line plus the distance from it), so the front is round like a piping tip. The letters
+// are then laid end to end in time: a letter starts a few pixels of pen travel after the last pixel of the one
+// before has shown; where two letters' ink overlaps it belongs to the earlier one. The time (0..1) is stored in two
+// channels, red the coarse part and green the fine part (world.js reads it at full precision, and exactly, with
+// no blending between neighbouring pixels: on a phone, half precision made the front jump and smudged letters).
 const NB8 = [-1, -1, 0, -1, 1, -1, -1, 0, 1, 0, -1, 1, 0, 1, 1, 1];
 function* thin(img, list, W) {
   let passes = 0;
@@ -342,9 +356,7 @@ function* thin(img, list, W) {
     changed = false;
     for (let step = 0; step < 2; step++) {
       const del = [];
-      let n = 0;
       for (const i of list) {
-        if (++n % 25000 === 0) yield;
         if (!img[i]) continue;
         const p2 = img[i - W], p3 = img[i - W + 1], p4 = img[i + 1], p5 = img[i + W + 1], p6 = img[i + W], p7 = img[i + W - 1], p8 = img[i - 1], p9 = img[i - W - 1];
         const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
@@ -356,9 +368,9 @@ function* thin(img, list, W) {
       }
       for (const i of del) img[i] = 0;
       if (del.length) changed = true;
-      yield;
     }
     list = list.filter(i => img[i]);
+    yield;
   }
   list.passes = passes; // about half the stroke's width
   return list;
@@ -373,46 +385,39 @@ export function revealStep(tex, ms = Infinity) {
   do { if (w.next().done) { tex.userData.work = null; return true; } } while (performance.now() < end);
   return false;
 }
-function revealMap(mctx, lines, W, H, size) {
+function revealMap(glyphs, font, W, H, size) {
   const [c, ctx] = canvas(W, H), tex = new THREE.CanvasTexture(c); // plain data, no colour space
-  // No mipmaps: averaging times of neighbouring letters would let an edge of one show early.
+  // Read exactly, texel by texel: blending would mix the times of neighbouring pixels of different letters.
   tex.generateMipmaps = false;
-  tex.minFilter = THREE.LinearFilter;
-  tex.letters = 1;
+  tex.minFilter = tex.magFilter = THREE.NearestFilter;
+  tex.letters = Math.max(1, glyphs.length);
   tex.soft = 0.001;
-  tex.userData.work = revealWork(c, ctx, tex, mctx, lines, W, H, size);
+  tex.userData.work = revealWork(c, ctx, tex, glyphs, font, W, H, size);
   return tex;
 }
-function* revealWork(c, ctx, tex, mctx, lines, W, H, size) {
-  const N = W * H, cols = [];
-  // Which letter each column belongs to (by the font's own advances), line by line.
-  lines.forEach(([line, y], li) => {
-    const top = li ? (lines[li - 1][1] + y) / 2 : 0, bot = li < lines.length - 1 ? (y + lines[li + 1][1]) / 2 : H;
-    const chars = [...line], x0 = W / 2 - mctx.measureText(line).width / 2;
-    // A space has no column of its own: it goes to the next letter (an accent leaning over it is that letter's),
-    // which waits a moment first.
-    let pre = "", from = 0, space = false;
-    chars.forEach((ch, i) => {
-      pre += ch;
-      if (/\s/.test(ch)) { space = true; return; }
-      const b = x0 + mctx.measureText(pre).width;
-      cols.push({ ch, space, x0: Math.max(0, Math.floor(from)), x1: Math.min(W, Math.ceil(i === chars.length - 1 ? W : b)), y0: Math.max(1, Math.floor(top)), y1: Math.min(H - 1, Math.ceil(bot)), last: i === chars.length - 1 });
-      from = b;
-      space = false;
-    });
-  });
-  const lab = new Int16Array(N).fill(-1);
-  cols.forEach((L, li) => { for (let y = L.y0; y < L.y1; y++) lab.fill(li, y * W + L.x0, y * W + L.x1); });
-  yield;
-  // The middle lines of the strokes.
-  const mk = mctx.getImageData(0, 0, W, H).data, sk = new Uint8Array(N);
+// One letter: its own ink, middle lines, pen walk and tip times, in a small box of its own.
+function* letterTimes(g, font, size) {
+  const m0 = (() => { const t = document.createElement("canvas").getContext("2d"); t.font = font; t.textAlign = "left"; t.textBaseline = "middle"; return t.measureText(g.ch); })(); // measured as it is drawn
+  const pad = Math.ceil(size * 0.12) + 12;
+  const bx = Math.floor(g.x - m0.actualBoundingBoxLeft) - pad, by = Math.floor(g.y - m0.actualBoundingBoxAscent) - pad;
+  const w = Math.ceil(m0.actualBoundingBoxLeft + m0.actualBoundingBoxRight) + 2 * pad, h = Math.ceil(m0.actualBoundingBoxAscent + m0.actualBoundingBoxDescent) + 2 * pad, n = w * h;
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const x = cv.getContext("2d", { willReadFrequently: true }); // read back at once: kept in memory, not on the GPU
+  x.font = font; x.textAlign = "left"; x.textBaseline = "middle"; x.lineJoin = "round"; x.lineWidth = size * 0.07;
+  x.fillText(g.ch, g.x - bx, g.y - by);
+  x.strokeText(g.ch, g.x - bx, g.y - by);
+  const a = x.getImageData(0, 0, w, h).data;
+  // Its ink as seen: the shape and outline, its shadow (2, 4 down right) and highlight (up left).
+  const at = (px, py) => px >= 0 && py >= 0 && px < w && py < h && a[(py * w + px) * 4 + 3] > 0;
+  const ink = new Uint8Array(n);
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) ink[py * w + px] = at(px, py) || at(px - 2, py - 4) || at(px + 2, py + 2) || at(px - 1, py - 1) ? 1 : 0;
+  const sk = new Uint8Array(n);
   let fg = [];
-  yield;
-  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const i = y * W + x; if (mk[i * 4 + 3] > 110) { sk[i] = 1; fg.push(i); } }
-  yield;
-  fg = yield* thin(sk, fg, W);
-  const half = fg.passes;
-  const nbs = (i, f) => { for (let k = 0; k < 16; k += 2) { const n = i + NB8[k] + NB8[k + 1] * W; if (sk[n]) f(n, NB8[k], NB8[k + 1]); } };
+  for (let py = 1; py < h - 1; py++) for (let px = 1; px < w - 1; px++) { const i = py * w + px; if (a[i * 4 + 3] > 110) { sk[i] = 1; fg.push(i); } }
+  fg = yield* thin(sk, fg, w);
+  const half = fg.passes || 1;
+  const nbs = (i, f) => { for (let k = 0; k < 16; k += 2) { const q = i + NB8[k] + NB8[k + 1] * w; if (sk[q]) f(q, NB8[k], NB8[k + 1]); } };
   const deg = i => { let d = 0; nbs(i, () => d++); return d; };
   // Little side twigs that thinning leaves at corners are cut off, so the pen does not lift to draw them.
   const twig = Math.max(3, Math.round(size * 0.09));
@@ -422,7 +427,7 @@ function* revealWork(c, ctx, tex, mctx, lines, W, H, size) {
     let cur = e, fork = false;
     for (;;) {
       const next = [];
-      nbs(cur, n => { if (!path.includes(n)) next.push(n); });
+      nbs(cur, q => { if (!path.includes(q)) next.push(q); });
       if (next.length !== 1) { fork = next.length > 1; break; }
       cur = next[0];
       path.push(cur);
@@ -431,137 +436,140 @@ function* revealWork(c, ctx, tex, mctx, lines, W, H, size) {
     if (fork && path.length <= twig) path.slice(0, -1).forEach(i => (sk[i] = 0));
   }
   fg = fg.filter(i => sk[i]);
-  yield;
   // The pen: its time is the distance it has travelled, in pixels.
-  const time = new Float32Array(N), seen = new Uint8Array(N), per = cols.map(() => []);
-  for (const i of fg) if (lab[i] >= 0) per[lab[i]].push(i);
-  const LIFT = size * 0.12, SPACE = size * 0.45, LINE = size * 0.6;
-  let T = 0, letters = 0;
-  const lend = new Float32Array(cols.length);
-  for (let li = 0; li < cols.length; li++) {
-    const L = cols[li];
-    if (per[li].length) letters++;
-    let first = true;
-    for (;;) {
-      const rest = per[li].filter(i => !seen[i]);
-      if (!rest.length) break;
-      // set down at the leftmost free end not drawn yet (a loop with no end: its leftmost point)
-      let start = -1, sx = Infinity;
-      for (const i of rest) {
-        let d = 0;
-        nbs(i, n => { if (lab[n] === li && !seen[n]) d++; });
-        const x = i % W;
-        if (d <= 1 && x < sx) { sx = x; start = i; }
-      }
-      if (start < 0) for (const i of rest) { const x = i % W; if (x < sx) { sx = x; start = i; } }
-      if (!first) T += rest.length < 4 ? 0 : LIFT;
-      first = false;
-      let p = start, dx = 1, dy = 0;
-      const trail = [p];
-      seen[p] = 1; time[p] = T;
-      for (;;) {
-        let best = -1, bs = -Infinity;
-        const cand = [];
-        nbs(p, (n, ox, oy) => {
-          if (seen[n] || lab[n] !== li) return;
-          cand.push(n);
-          const s = (ox * dx + oy * dy) / Math.hypot(ox, oy);
-          if (s > bs) { bs = s; best = n; }
-        });
-        if (best < 0) break;
-        // pixels of a two-pixel-thick step beside the chosen one are the same line, not a branch
-        const bx = best % W, by = (best / W) | 0;
-        for (const n of cand) if (n !== best && Math.abs((n % W) - bx) <= 1 && Math.abs(((n / W) | 0) - by) <= 1) { seen[n] = 1; time[n] = T; }
-        T += bx !== p % W && by !== ((p / W) | 0) ? Math.SQRT2 : 1;
-        seen[best] = 1; time[best] = T;
-        trail.push(best);
-        const back = trail[Math.max(0, trail.length - 6)];
-        const vx = bx - (back % W), vy = by - ((back / W) | 0), vl = Math.hypot(vx, vy) || 1;
-        dx = vx / vl; dy = vy / vl;
-        p = best;
-      }
+  const time = new Float32Array(n), seen = new Uint8Array(n), LIFT = size * 0.1;
+  let T = 0, first = true;
+  for (;;) {
+    const rest = fg.filter(i => !seen[i]);
+    if (!rest.length) break;
+    let start = -1, best = Infinity;
+    for (const i of rest) {
+      let d = 0;
+      nbs(i, q => { if (!seen[q]) d++; });
+      const s = (i % w) + ((i / w) | 0); // top-left-most
+      if (d <= 1 && s < best) { best = s; start = i; }
     }
-    lend[li] = T;
-    yield;
+    if (start < 0) for (const i of rest) { const s = (i % w) + ((i / w) | 0); if (s < best) { best = s; start = i; } }
+    if (!first) T += rest.length < 4 ? 0 : LIFT;
+    first = false;
+    let p = start, dx = 1, dy = 0;
+    const trail = [p];
+    seen[p] = 1; time[p] = T;
+    for (;;) {
+      let nb = -1, bs = -Infinity;
+      const cand = [];
+      nbs(p, (q, ox, oy) => {
+        if (seen[q]) return;
+        cand.push(q);
+        const s = (ox * dx + oy * dy) / Math.hypot(ox, oy);
+        if (s > bs) { bs = s; nb = q; }
+      });
+      if (nb < 0) break;
+      // pixels of a two-pixel-thick step beside the chosen one are the same line, not a branch
+      const qx = nb % w, qy = (nb / w) | 0;
+      for (const q of cand) if (q !== nb && Math.abs((q % w) - qx) <= 1 && Math.abs(((q / w) | 0) - qy) <= 1) { seen[q] = 1; time[q] = T; }
+      T += qx !== p % w && qy !== ((p / w) | 0) ? Math.SQRT2 : 1;
+      seen[nb] = 1; time[nb] = T;
+      trail.push(nb);
+      const back = trail[Math.max(0, trail.length - 6)];
+      const vx = qx - (back % w), vy = qy - ((back / w) | 0), vl = Math.hypot(vx, vy) || 1;
+      dx = vx / vl; dy = vy / vl;
+      p = nb;
+    }
   }
-  for (const i of fg) if (!seen[i]) time[i] = lend[lab[i]]; // anything the pen missed ends its own letter
-  // Every pixel: the time of the nearest point of a middle line, plus how far it is from it (the round tip).
-  // The tip is a round nozzle as wide as the stroke: a pixel shows as soon as the tip, at any point it has passed,
-  // covers it, the soonest over all such points (time there plus the distance to it). Worked out outwards from
-  // the lines in order of time (a bucket queue), each pixel keeping the line point that reaches it first. With
-  // only its nearest line point, a pixel where two strokes meet waited for the later one, and bits of a letter
-  // came in out of order. The reach is the stroke's half width plus its shadow, so it never leaks into a stroke
-  // close by.
-  const R = half * 1.3 + 6, seed = new Int32Array(N).fill(-1), cost = new Float32Array(N).fill(Infinity), buckets = [];
-  const push = (i, c) => { const b = c | 0; (buckets[b] || (buckets[b] = [])).push(i); };
+  yield;
+  // The round tip: the soonest time over all points it has passed (time there plus the distance), within its
+  // reach (half the stroke and the shadow); ink beyond that just after its neighbour.
+  const R = half * 1.3 + 6, seed = new Int32Array(n).fill(-1), cost = new Float32Array(n).fill(Infinity), buckets = [];
+  const push = (i, cc) => { const b = cc | 0; (buckets[b] || (buckets[b] = [])).push(i); };
   for (const i of fg) { seed[i] = i; cost[i] = time[i]; push(i, time[i]); }
-  let work = 0;
   for (let b = 0; b < buckets.length; b++) {
     const list = buckets[b];
     if (!list) continue;
     for (let j = 0; j < list.length; j++) {
-      if (++work % 8000 === 0) yield;
-      const q = list[j], s0 = seed[q], sx = s0 % W, sy = (s0 / W) | 0, qx = q % W, qy = (q / W) | 0, t0 = time[s0], ls = lab[s0];
+      const q = list[j], s0 = seed[q], sx = s0 % w, sy = (s0 / w) | 0, qx = q % w, qy = (q / w) | 0, t0 = time[s0];
       for (let k = 0; k < 16; k += 2) {
         const nx = qx + NB8[k], ny = qy + NB8[k + 1];
-        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-        const ex = nx - sx, ey = ny - sy, d = Math.sqrt(ex * ex + ey * ey), n = ny * W + nx, c = t0 + d;
-        if (d > R || c >= cost[n] - 1e-3 || lab[n] !== ls) continue; // each letter's pixels are its own
-        cost[n] = c; seed[n] = s0; push(n, c);
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const ex = nx - sx, ey = ny - sy, d = Math.sqrt(ex * ex + ey * ey), q2 = ny * w + nx, cc = t0 + d;
+        if (d > R || cc >= cost[q2] - 1e-3) continue;
+        cost[q2] = cc; seed[q2] = s0; push(q2, cc);
       }
     }
     buckets[b] = null;
   }
-  // Ink beyond the tip's reach (the far edge of a shadow, a thick join) shows just after its nearest shown pixel.
   {
-    const queue = new Int32Array(N);
+    const queue = new Int32Array(n);
     let head = 0, tail = 0;
-    for (let i = 0; i < N; i++) if (seed[i] >= 0) queue[tail++] = i;
+    for (let i = 0; i < n; i++) if (seed[i] >= 0) queue[tail++] = i;
     while (head < tail) {
-      if (++work % 40000 === 0) yield;
-      const q = queue[head++], qx = q % W, qy = (q / W) | 0;
-      if (cost[q] - time[seed[q]] > 3 * R) continue;
+      const q = queue[head++], qx = q % w, qy = (q / w) | 0;
       for (let k = 0; k < 16; k += 2) {
         const nx = qx + NB8[k], ny = qy + NB8[k + 1];
-        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-        const n = ny * W + nx;
-        if (seed[n] >= 0 || lab[n] !== lab[seed[q]]) continue;
-        seed[n] = seed[q]; cost[n] = cost[q] + (k === 2 || k === 6 || k === 8 || k === 12 ? 1 : Math.SQRT2); queue[tail++] = n;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const q2 = ny * w + nx;
+        if (seed[q2] >= 0) continue;
+        seed[q2] = seed[q]; cost[q2] = cost[q] + (k === 2 || k === 6 || k === 8 || k === 12 ? 1 : Math.SQRT2); queue[tail++] = q2;
       }
     }
   }
-  yield;
-  // Strictly one letter after another (author rule: no part of a letter before the one before it is finished):
-  // each letter's times are moved so it starts only once every pixel of the letter before has shown (its soft
-  // round edges included), with a pause for a space or a new line.
-  const ink = i => mk[i * 4 + 3] > 0 || (i >= 2 + 4 * W && mk[(i - 2 - 4 * W) * 4 + 3] > 0) || (i + 2 + 2 * W < N && mk[(i + 2 + 2 * W) * 4 + 3] > 0); // the shape, its shadow, its highlight
-  const lo = new Float32Array(cols.length).fill(Infinity), hi = new Float32Array(cols.length).fill(-Infinity), base = new Float32Array(cols.length);
-  for (let i = 0; i < N; i++) {
-    if (seed[i] < 0) continue;
-    const li = lab[seed[i]];
-    if (cost[i] < lo[li]) lo[li] = cost[i];
-    if (cost[i] > hi[li] && ink(i)) hi[li] = cost[i];
-  }
-  yield;
-  let off = 0;
-  for (let li = 0; li < cols.length; li++) {
-    if (lo[li] === Infinity) continue;
-    if (hi[li] < lo[li]) hi[li] = lo[li];
-    off += li === 0 ? 0 : cols[li].space ? SPACE : cols[li - 1].last ? LINE : 4;
-    base[li] = off - lo[li];
-    off += hi[li] - lo[li];
+  // How long it takes: until its last visible pixel has shown.
+  let dur = 0;
+  for (let i = 0; i < n; i++) if (ink[i] && seed[i] >= 0 && cost[i] > dur) dur = cost[i];
+  return { bx, by, w, h, ink, cost, dur, has: fg.length > 0 };
+}
+function* revealWork(c, ctx, tex, glyphs, font, W, H, size) {
+  const N = W * H, SPACE = size * 0.45, LINE = size * 0.6, GAP = 4;
+  const val = new Float32Array(N).fill(-1);
+  let off = 0, prev = null;
+  for (const g of glyphs) {
+    const L = yield* letterTimes(g, font, size);
+    if (prev) off += g.space ? SPACE : prev.last ? LINE : GAP;
+    // Its ink, at its place in the whole; ink already given to an earlier letter stays with it.
+    for (let py = 0; py < L.h; py++) {
+      const Y = L.by + py;
+      if (Y < 0 || Y >= H) continue;
+      for (let px = 0; px < L.w; px++) {
+        const X = L.bx + px, i = py * L.w + px;
+        if (X < 0 || X >= W || !L.ink[i]) continue;
+        const G = Y * W + X;
+        if (val[G] < 0) val[G] = off + Math.min(L.cost[i], L.dur);
+      }
+    }
+    off += L.dur;
+    prev = g;
+    yield;
   }
   const total = off + 1;
+  // Around the ink, the time of the ink next to it (the reads are exact, but its edge stays clean); further out,
+  // the end.
+  {
+    let front = [];
+    for (let i = 0; i < N; i++) if (val[i] >= 0) front.push(i);
+    for (let r = 0; r < 3; r++) {
+      const next = [];
+      for (const q of front) {
+        const qx = q % W, qy = (q / W) | 0;
+        for (let k = 0; k < 16; k += 2) {
+          const nx = qx + NB8[k], ny = qy + NB8[k + 1];
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const q2 = ny * W + nx;
+          if (val[q2] >= 0) continue;
+          val[q2] = val[q]; next.push(q2);
+        }
+      }
+      front = next;
+      yield;
+    }
+  }
   const img = ctx.createImageData(W, H), dd = img.data;
   for (let i = 0; i < N; i++) {
     if (i % (W * 24) === 0) yield;
-    let v = 0.9999;
-    if (seed[i] >= 0) { const li = lab[seed[i]]; v = Math.min(0.9999, (Math.min(cost[i], hi[li]) + base[li]) / total); }
-    const r = Math.floor(v * 255);
+    const v = val[i] < 0 ? 0.9999 : Math.min(0.9999, val[i] / total), r = Math.floor(v * 255);
     dd[i * 4] = r; dd[i * 4 + 1] = Math.floor((v * 255 - r) * 255); dd[i * 4 + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  tex.letters = Math.max(1, letters);
+  tex.letters = Math.max(1, glyphs.length);
   tex.soft = 2 / total; // the edge of the cream's front: two pixels
   tex.needsUpdate = true;
 }

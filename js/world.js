@@ -306,8 +306,14 @@ export async function createWorld(o) {
     // If frames are paused or throttled, still land on the final state on time.
     setTimeout(() => { if (anims.delete(fn)) { fn(t0 + ms + 1); render(); } }, ms + 150);
   }
+  let shadowsKept = false;
   function render() {
-    renderer.shadowMap.needsUpdate = true;
+    // While a slice is out, nothing in the room moves (the slice and what is held up are drawn above it and cast
+    // no shadow there), so the room's shadows are drawn once and kept: redrawn every frame, they cost much of
+    // each frame while the message is written. The note being put down on the table moves them again.
+    const still = openK !== -1 && !noteFly;
+    if (!still || !shadowsKept) renderer.shadowMap.needsUpdate = true;
+    shadowsKept = still;
     syncBites();
     veilPlush();
     if (openK === -1 && scrimA <= 0.001) { renderer.autoClear = true; renderer.render(scene, camera); return; }
@@ -484,8 +490,10 @@ export async function createWorld(o) {
     mat.customProgramCacheKey = () => "icing";
     mat.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, revealU);
-      sh.fragmentShader = "uniform float uReveal;\nuniform float uSoft;\nuniform sampler2D uRevealMap;\n" + sh.fragmentShader.replace("#include <map_fragment>", `#include <map_fragment>
-  vec4 rvm = texture2D(uRevealMap, vMapUv);
+      // highp: by default a texture is read at low precision, half floats on a phone, too coarse for the time in
+      // it, so the cream's front jumped and the end of one letter ran into the next.
+      sh.fragmentShader = "uniform highp float uReveal;\nuniform highp float uSoft;\nuniform highp sampler2D uRevealMap;\n" + sh.fragmentShader.replace("#include <map_fragment>", `#include <map_fragment>
+  highp vec4 rvm = texture2D(uRevealMap, vMapUv);
   diffuseColor.a *= smoothstep(0.0, uSoft, uReveal - (rvm.r + rvm.g / 255.0));`);
     };
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wid, hgt), mat);
@@ -669,9 +677,22 @@ export async function createWorld(o) {
     camera.layers.set(0);
   }
   function prepEat(k) {
-    const s = cake.slices[k], pre = new THREE.Scene();
+    const s = cake.slices[k], pre = new THREE.Scene(), txt = s.userData.text;
+    // The icing text as it is first written, too: its shader and both its pictures, so opening the slice does not
+    // wait for them.
+    if (txt && !txt.userData.prepped) {
+      txt.userData.prepped = true;
+      renderer.initTexture(txt.material.map);
+      renderer.initTexture(txt.userData.rv);
+      pre.add(new THREE.Mesh(txt.geometry, txt.material));
+    }
     s.traverse(m => {
       if (!m.isMesh || m.userData.biteNext || m.userData.biteMat) return;
+      // its own materials as drawn above the dark (layer 1) the first time it is opened: built then, they made
+      // the slice's way out stutter
+      const own = new THREE.Mesh(m.geometry, m.material);
+      own.castShadow = m.castShadow; own.receiveShadow = m.receiveShadow;
+      pre.add(own);
       m.userData.biteNext = biteMaterial(m.material);
       const d = new THREE.Mesh(m.geometry, m.userData.biteNext);
       d.castShadow = m.castShadow; d.receiveShadow = m.receiveShadow;
@@ -685,6 +706,7 @@ export async function createWorld(o) {
       pre.add(d);
     }
     if (pre.children.length) buildShaders(pre);
+    try { renderer.compileAsync(scrimScene, scrimCam).catch(() => {}); } catch (e) { /* the dark behind the slice: then built when first drawn */ }
     setTimeout(makeNote, 400);
   }
   function biteWall(k, i, mat) {
