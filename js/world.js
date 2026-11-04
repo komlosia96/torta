@@ -478,19 +478,22 @@ export async function createWorld(o) {
     const map = TX.icingText((messages && messages[FRONT.indexOf(k)]) || "", W, Hp, t => (2 * (r2 - t * hgt) * Math.tan(Math.PI / 8) * 0.8) / wid);
     map.anisotropy = aniso;
     const mat = new THREE.MeshStandardMaterial({ map, transparent: true, roughness: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-    // Written out like piped cream: each pixel shows once the pen has reached it (tex.js revealMap), letter by
-    // letter through the sentence, each drawn along its strokes; the pen's tip is a little soft. uReveal runs 0 to 1, 2 is all written.
-    const rv = map.userData.reveal, soft = 0.2 / rv.letters, revealU = { uReveal: { value: 2 }, uRevealMap: { value: rv } };
+    // Piped like cream: each pixel shows once the pen has reached it (tex.js revealMap: one round tip moving along
+    // the middle of each stroke, letter after letter), with a front two pixels soft. uReveal runs 0 to 1, 2 is all done.
+    const rv = map.userData.reveal, revealU = { uReveal: { value: 2 }, uSoft: { value: rv.soft }, uRevealMap: { value: rv } };
     mat.customProgramCacheKey = () => "icing";
     mat.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, revealU);
-      sh.fragmentShader = "uniform float uReveal;\nuniform sampler2D uRevealMap;\n" + sh.fragmentShader.replace("#include <map_fragment>", `#include <map_fragment>
+      sh.fragmentShader = "uniform float uReveal;\nuniform float uSoft;\nuniform sampler2D uRevealMap;\n" + sh.fragmentShader.replace("#include <map_fragment>", `#include <map_fragment>
   vec4 rvm = texture2D(uRevealMap, vMapUv);
-  diffuseColor.a *= smoothstep(0.0, ${soft.toFixed(5)}, uReveal - (rvm.r + rvm.g / 255.0));`);
+  diffuseColor.a *= smoothstep(0.0, uSoft, uReveal - (rvm.r + rvm.g / 255.0));`);
     };
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(wid, hgt), mat);
     mesh.userData.reveal = revealU.uReveal;
-    mesh.userData.letters = rv.letters;
+    // The map of how it is piped is made in steps in the background (tex.js revealStep); ready() finishes it at
+    // once if the slice is opened first, and sets the pace and the soft edge from it.
+    mesh.userData.ready = () => { TX.revealStep(rv); revealU.uSoft.value = rv.soft; mesh.userData.letters = rv.letters; mesh.userData.soft = rv.soft; };
+    mesh.userData.rv = rv;
     const rr = radial(s.userData.mid), t = new THREE.Vector3().crossVectors(rr, Y);
     mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(t, rr, Y));
     mesh.position.copy(rr).multiplyScalar((r1 + r2) / 2).setY(TOP + 0.05);
@@ -527,6 +530,7 @@ export async function createWorld(o) {
     s.traverse(m => m.layers.set(1));
     txt.visible = true;
     const again = !!txt.userData.read; // read before: the text is already written on it
+    txt.userData.ready();
     txt.userData.reveal.value = reduced || again ? 2 : 0;
     ov.classList.add("slice-open");
     animate(reduced ? 1 : 1050, t => {
@@ -540,8 +544,8 @@ export async function createWorld(o) {
       if (seq !== openSeq) return;
       arriving = false;
       if (reduced || again) { if (written) written(); return; }
-      // Drawn letter by letter through the sentence, at a steady pen's pace.
-      const ms = Math.min(4500, Math.max(1800, txt.userData.letters * 150)), end = 1 + 0.5 / txt.userData.letters;
+      // Piped letter by letter through the sentence, the pen at one steady speed all the way.
+      const ms = Math.min(5000, Math.max(2000, txt.userData.letters * 170)), end = 1 + 2 * txt.userData.soft;
       animate(ms, t => { if (seq === openSeq) txt.userData.reveal.value = t * end; }, () => { if (seq !== openSeq) return; txt.userData.reveal.value = 2; if (written) written(); });
     });
   }
@@ -651,6 +655,38 @@ export async function createWorld(o) {
   };
   // The wall of bite i: the ragged cylinder from the bottom of the cake to the top, its sponge layers lined up
   // with the cut faces (v runs bottom to top over the cake's height, u is the distance from the cake's centre).
+  // Made ahead, a moment after the page has loaded (prepEat): the slice's bite materials, a bite wall's, and the
+  // note, with their shaders built in the background. Made at the first bite, building them held up that frame,
+  // so the first bite showed late (author: laggy).
+  // Builds the shaders of obj's materials now, in the background where the browser can: once as drawn among the
+  // room's lights (layer 0) and once as drawn above the dark (layer 1, which leaves the candles' lights out). A
+  // shader is made for the lights it is lit by, so building only one of the two left the other to the first bite.
+  function buildShaders(obj) {
+    for (const l of [0, 1]) {
+      camera.layers.set(l);
+      try { renderer.compileAsync(obj, camera, scene).catch(() => {}); } catch (e) { /* then built when first drawn */ }
+    }
+    camera.layers.set(0);
+  }
+  function prepEat(k) {
+    const s = cake.slices[k], pre = new THREE.Scene();
+    s.traverse(m => {
+      if (!m.isMesh || m.userData.biteNext || m.userData.biteMat) return;
+      m.userData.biteNext = biteMaterial(m.material);
+      const d = new THREE.Mesh(m.geometry, m.userData.biteNext);
+      d.castShadow = m.castShadow; d.receiveShadow = m.receiveShadow;
+      pre.add(d);
+    });
+    if (!s.userData.wallMat) {
+      const sponge = s.userData.inner.children[2];
+      s.userData.wallMat = biteMaterial(sponge.userData.mat0 || sponge.material, 0); // kept, so the walls' shader stays built
+      const d = new THREE.Mesh(sponge.geometry, s.userData.wallMat);
+      d.receiveShadow = true;
+      pre.add(d);
+    }
+    if (pre.children.length) buildShaders(pre);
+    setTimeout(makeNote, 400);
+  }
   function biteWall(k, i, mat) {
     const c = biteCentre(k, i), r = BITES[i][2], n = 96, pos = [], uv = [], idx = [];
     for (let j = 0; j <= n; j++) {
@@ -693,8 +729,8 @@ export async function createWorld(o) {
       eatK = k;
       bitesTaken = 0;
       BITES.forEach((b, i) => { const c = biteCentre(k, i); biteU.uBites.value[i].set(c.x, c.z, b[2], 0); });
-      s.traverse(m => { if (m.isMesh && !m.userData.biteMat) { m.userData.mat0 = m.material; m.material = biteMaterial(m.material); m.userData.biteMat = true; } });
-      setTimeout(makeNote, 300); // ready the note while she eats, after this bite's squish
+      s.traverse(m => { if (m.isMesh && !m.userData.biteMat) { m.userData.mat0 = m.material; m.material = m.userData.biteNext || biteMaterial(m.material); m.userData.biteMat = true; } });
+      setTimeout(makeNote, 300); // made ahead already (prepEat); only if it was not
     }
     const i = bitesTaken;
     bitesTaken = Math.min(BITES.length, bitesTaken + 1);
@@ -755,7 +791,7 @@ export async function createWorld(o) {
     note.userData.note = true;
     scene.add(note);
     renderer.initTexture(map);
-    try { renderer.compileAsync(note, camera, scene).catch(() => {}); } catch (e) {} // compiles only what is visible, at once
+    buildShaders(note);
     note.visible = false;
   }
   // Where the note is first shown, once the last bite is taken: facing the camera where the slice was, as wide
@@ -888,7 +924,7 @@ export async function createWorld(o) {
       s.visible = true;
       s.scale.setScalar(1);
       s.userData.berries.forEach(b => { b.userData.eaten = false; b.visible = true; });
-      s.traverse(m => { if (m.userData.biteMat) { m.material.dispose(); m.material = m.userData.mat0; m.userData.biteMat = false; } });
+      s.traverse(m => { if (m.userData.biteMat) { if (m.material !== m.userData.biteNext) m.material.dispose(); m.material = m.userData.mat0; m.userData.biteMat = false; } }); // the ones made ahead are kept, shaders and all
     });
     showNote(false);
   }
@@ -913,7 +949,11 @@ export async function createWorld(o) {
   // the page has settled and once its font is in: made when the slice opened, it stalled the slice on its way.
   const msgs = FRONT.map(k => (messages && messages[FRONT.indexOf(k)]) || "").join(" ");
   Promise.race([document.fonts.load('700 100px "Caveat"', msgs || "a").catch(() => {}), new Promise(r => setTimeout(r, 3000))])
-    .then(() => setTimeout(() => FRONT.forEach(k => { if (!cake.slices[k].userData.text) textMesh(k); }), 1200));
+    .then(() => setTimeout(() => FRONT.forEach(k => {
+      const rv = (cake.slices[k].userData.text || textMesh(k)).userData.rv;
+      const step = () => { if (!TX.revealStep(rv, 6)) setTimeout(step, 30); else setTimeout(() => prepEat(k), 300); }; // a few ms at a time, between frames
+      step();
+    }), 1200));
   fit();
   canvas.classList.add("ready");
 
