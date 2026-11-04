@@ -193,7 +193,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
   let boxNow = "";
 
   function open() {
-    if (isOpen) return;
+    if (isOpen || (isBlocked && isBlocked())) return;
     isOpen = busy = true;
     lastFocus = document.activeElement;
     stage.getAnimations().forEach(a => a.cancel()); // never let an earlier fly-back hold the book small and faded
@@ -207,6 +207,7 @@ export function createAlbum({ anchor, photos, ui, title, dedication, reduced, on
     if (look) {
       view.style.setProperty("--cover", `url("${look.cover}")`);
       view.style.setProperty("--leather", `url("${look.plain}")`);
+      view.style.setProperty("--spine", `url("${look.spine}")`);
     }
     view.classList.toggle("has-look", !!look);
     jump(0); // always opens on photo 1

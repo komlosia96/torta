@@ -1024,20 +1024,32 @@ export async function createWorld(o) {
       for (let c = 0; c < 3; c++) was[c] += ti[j + c];
       nWas++;
     }
+    // The spine, as the light shows it from the side (its rounded back, between the raised bands), against the
+    // plain leather it is made of.
+    const lp = (() => { const im = tex.leather.image, c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(im, 0, 0); return { d: x.getImageData(0, 0, im.width, im.height).data, w: im.width, h: im.height }; })();
+    const sGot = [0, 0, 0], sWas = [0, 0, 0];
+    let nS = 0, nL = 0;
+    for (const zf of [-0.44, -0.22, 0, 0.22, 0.44]) for (const a of [0, 0.5, 1]) {
+      const [qx, qy] = toScreen(book.localToWorld(v3p.set(-w / 2 + 0.2 - 0.63 * Math.cos(a), h / 2 + 1.5 * Math.sin(a), zf * d)));
+      const X = Math.round((qx - x0) * k), Y = Math.round((qy - y0) * k);
+      if (X >= 0 && Y >= 0 && X < shot.width && Y < shot.height) { const i = (Y * shot.width + X) * 4; if (px[i + 3] > 200) { for (let c = 0; c < 3; c++) sGot[c] += px[i + c]; nS++; } }
+    }
+    for (let yy = 0.2; yy <= 0.8; yy += 0.1) for (let xx = 0.2; xx <= 0.8; xx += 0.1) { const j = (Math.round(yy * (lp.h - 1)) * lp.w + Math.round(xx * (lp.w - 1))) * 4; for (let c = 0; c < 3; c++) sWas[c] += lp.d[j + c]; nL++; }
     render(); // the frame on screen again, before the page shows
     if (nGot < 8) return null;
     const gain = got.map((g, c) => (g / nGot) / Math.max(1, was[c] / nWas));
-    const toned = src => {
+    const sGain = nS >= 4 ? sGot.map((g, c) => (g / nS) / Math.max(1, sWas[c] / nL)) : gain;
+    const toned = (src, gn = gain) => {
       const c = document.createElement("canvas");
       c.width = src.width; c.height = src.height;
       const x = c.getContext("2d", { willReadFrequently: true });
       x.drawImage(src, 0, 0);
       const im = x.getImageData(0, 0, c.width, c.height), a = im.data;
-      for (let i = 0; i < a.length; i += 4) { a[i] = Math.min(255, a[i] * gain[0]); a[i + 1] = Math.min(255, a[i + 1] * gain[1]); a[i + 2] = Math.min(255, a[i + 2] * gain[2]); }
+      for (let i = 0; i < a.length; i += 4) { a[i] = Math.min(255, a[i] * gn[0]); a[i + 1] = Math.min(255, a[i + 1] * gn[1]); a[i + 2] = Math.min(255, a[i + 2] * gn[2]); }
       x.putImageData(im, 0, 0);
       return c.toDataURL("image/jpeg", 0.9);
     };
-    return { key: lightKey(), cover: toned(img), plain: toned(tex.leather.image) };
+    return { key: lightKey(), cover: toned(img), plain: toned(tex.leather.image), spine: toned(tex.leather.image, sGain) };
   }
   function prepCover() { try { const l = makeCoverLook(); if (l) coverLook = l; } catch (e) { /* the album keeps its own leather */ } }
   setTimeout(prepCover, 2500);
@@ -1096,10 +1108,6 @@ export async function createWorld(o) {
     setLocked() {},
     shimmer() {},
     setLights(on) { const from = light, to = on ? 1 : 0; animate(reduced ? 1 : 2200, t => applyLight(lerp(from, to, ease(t))), () => setTimeout(prepCover, 600)); },
-    shakeSlice(i) {
-      const s = cake.slices[FRONT[i]], inner = s.userData.inner, base = inner.position.clone(), t3 = new THREE.Vector3().crossVectors(radial(s.userData.mid), Y);
-      animate(reduced ? 1 : 420, t => inner.position.copy(base).addScaledVector(t3, 0.3 * Math.sin(t * Math.PI * 6) * (1 - t)), () => inner.position.copy(base));
-    },
     // Slices are addressed by message index here (0), see FRONT.
     openSlice: (i, written) => openSlice(FRONT[i], written),
     closeSlice: (done, settled) => closeSlice(done && (k => done(FRONT.indexOf(k))), settled && (k => settled(FRONT.indexOf(k)))),

@@ -47,6 +47,10 @@ soundHint.textContent = U.soundHint;
 $("turnBackText").textContent = U.turnBack;
 
 const S = { WISH: "WISH", BLOWING: "BLOWING", CELEBRATE: "CELEBRATE", PLAY: "PLAY" };
+// Before the candles are out only the buttons answer (author rule): the blow button, reset and sound; the
+// candles themselves once the blow button has been tapped (the hint then says to tap them if blowing does not
+// work). The album, Ákos and the slice do nothing until then.
+const beforeWish = () => state === S.WISH || state === S.BLOWING;
 let state = S.WISH, timers = [], heartTimer = 0, toastTimer = 0, muted = false, soundHintShown = false, allDone = false, uniTaps = 0;
 const visited = new Set();
 const later = (ms, fn) => timers.push(setTimeout(fn, ms));
@@ -79,7 +83,8 @@ const album = createAlbum({
   anchor: world.albumAnchor, photos, ui: U, reduced,
   title: albumCfg.title || "", dedication: albumCfg.dedication || "",
   onPhoto: id => lightbox.open(id),
-  isBlocked: () => lightbox.isOpen(),
+  // Not before the candles are out (author rule: until then only the buttons do anything), nor over the lightbox.
+  isBlocked: () => lightbox.isOpen() || beforeWish(),
 });
 const lightbox = createLightbox($("lightbox"), photos, U, {
   getSource: id => album.getPhotoEl(id), reduced,
@@ -316,8 +321,8 @@ function setWishUI() {
   meter.hidden = true;
   hint.textContent = ""; // the wish text only shows once the button is tapped
   hint2.hidden = true; // blowHint already says to tap the candles if the mic does not work (also in Messenger)
-  cake.setCandlesTappable(true); // tapping a candle always works, mic or not
-  cake.setTapHint(inApp);
+  cake.setCandlesTappable(false); // not before the blow button (author rule: only the buttons until then)
+  cake.setTapHint(false);
 }
 
 // WISH -> BLOWING
@@ -328,6 +333,8 @@ blowBtn.addEventListener("click", () => {
   blowBtn.hidden = true;
   meter.hidden = false;
   hint.textContent = U.blowHint;
+  cake.setCandlesTappable(true); // from now on tapping a candle always works, mic or not
+  cake.setTapHint(inApp);
   startBlow(ctx, { log: DEV, onLevel, onSuccess: celebrate, onFallback: showFallback });
 });
 
@@ -349,7 +356,7 @@ function showFallback(reason) {
 }
 
 function onCandleTap(i) {
-  if (state === S.CELEBRATE || state === S.PLAY) return;
+  if (state !== S.BLOWING) return; // only once the blow button has been tapped
   audio.ensureAudio();
   if (!cake.extinguish(i)) return;
   cake.setTapHint(true);
@@ -400,9 +407,10 @@ function toPlay() {
   hint.textContent = world.isEaten(0) ? U.eatenHint : U.afterHint;
 }
 
+// Only once the slice has moved out of the cake (after the wish, world.setCut) does it answer a tap at all
+// (author rule): before that it is part of the whole cake, with no shake and no message.
 function onSliceTap(k) {
-  if (state === S.PLAY) { if (!lightbox.isOpen() && !album.isOpen()) openSlice(k); }
-  else if (state === S.WISH || state === S.BLOWING) { toast(U.lockedToast); cake.shakeSlice(k); }
+  if (state === S.PLAY && !lightbox.isOpen() && !album.isOpen()) openSlice(k);
 }
 
 function onSliceClosed(k) {
@@ -426,7 +434,7 @@ function onUnicornTap() {
     audio.kiss();
     sendKisses();
     if (state === S.PLAY && ++uniTaps >= 3) later(650, askToSing); // after the kisses have flown
-  } else cake.unicorn.react(false);
+  } // before the wish he does not react to taps (author rule: only the buttons until then)
 }
 
 muteBtn.addEventListener("click", () => {
@@ -457,7 +465,7 @@ function reset() {
   state = S.WISH;
   cake.relightAll();
   cake.setBlowLevel(0);
-  cake.setCandlesTappable(true);
+  cake.setCandlesTappable(false);
   cake.setLocked(true);
   cake.unicorn.setMood("sad");
   cake.resetVisited();
